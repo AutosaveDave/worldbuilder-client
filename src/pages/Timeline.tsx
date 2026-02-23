@@ -22,7 +22,12 @@ export default function TimelinePage() {
   const [era, setEra] = useState("");
   const [significance, setSignificance] = useState("");
 
-  const args: Record<string, unknown> = { worldId: worldId!, limit: 100 };
+  const args: Record<string, unknown> = {
+    worldId: worldId!,
+    limit: 100,
+    sortBy: "sortOrder",
+    sortDirection: "asc",
+  };
   if (era) args.era = era;
   if (significance) args.significance = significance;
 
@@ -32,9 +37,17 @@ export default function TimelinePage() {
     [worldId, era, significance]
   );
 
-  // Sort chronologically by sortOrder (ascending), then by date as fallback
+  // Sort chronologically: primary by sortOrder, secondary by date string
   const data = rawData
-    ? [...rawData].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    ? [...rawData].sort((a, b) => {
+        const orderA = a.sortOrder ?? Infinity;
+        const orderB = b.sortOrder ?? Infinity;
+        if (orderA !== orderB) return orderA - orderB;
+        // Fall back to date string comparison
+        const dateA = a.date ?? "";
+        const dateB = b.date ?? "";
+        return dateA.localeCompare(dateB);
+      })
     : null;
 
   // Collect unique eras for filter
