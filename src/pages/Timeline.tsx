@@ -26,11 +26,16 @@ export default function TimelinePage() {
   if (era) args.era = era;
   if (significance) args.significance = significance;
 
-  const { data, loading, error, refetch } = useToolQuery<TimelineEvent[]>(
-    "get_timeline",
+  const { data: rawData, loading, error, refetch } = useToolQuery<TimelineEvent[]>(
+    "list_events",
     args,
     [worldId, era, significance]
   );
+
+  // Sort chronologically by sortOrder (ascending), then by date as fallback
+  const data = rawData
+    ? [...rawData].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    : null;
 
   // Collect unique eras for filter
   const eras = [...new Set(data?.map((e) => e.era).filter(Boolean) as string[])];
