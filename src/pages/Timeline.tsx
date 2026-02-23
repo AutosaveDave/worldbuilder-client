@@ -37,16 +37,20 @@ export default function TimelinePage() {
     [worldId, era, significance]
   );
 
-  // Sort chronologically: primary by sortOrder, secondary by date string
+  // Sort chronologically: primary by sortOrder, then extract numeric year from date
   const data = rawData
     ? [...rawData].sort((a, b) => {
-        const orderA = a.sortOrder ?? Infinity;
-        const orderB = b.sortOrder ?? Infinity;
-        if (orderA !== orderB) return orderA - orderB;
-        // Fall back to date string comparison
-        const dateA = a.date ?? "";
-        const dateB = b.date ?? "";
-        return dateA.localeCompare(dateB);
+        const orderA = a.sortOrder;
+        const orderB = b.sortOrder;
+        // If both have sortOrder, compare numerically
+        if (orderA != null && orderB != null) return orderA - orderB;
+        // If only one has sortOrder, it comes first
+        if (orderA != null) return -1;
+        if (orderB != null) return 1;
+        // Fall back to extracting numeric year from date string (e.g. "Year 3042, Month 7")
+        const yearA = parseYearFromDate(a.date);
+        const yearB = parseYearFromDate(b.date);
+        return yearA - yearB;
       })
     : null;
 
@@ -190,4 +194,11 @@ function significanceColor(sig?: string): string {
     default:
       return "#90a4ae";
   }
+}
+
+/** Extract the first number from a date string like "Year 3042, Month 7" → 3042 */
+function parseYearFromDate(date?: string): number {
+  if (!date) return Infinity;
+  const match = date.match(/(\d+)/);
+  return match ? Number(match[1]) : Infinity;
 }
