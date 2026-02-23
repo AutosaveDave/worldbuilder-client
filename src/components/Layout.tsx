@@ -19,7 +19,6 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import PublicIcon from "@mui/icons-material/Public";
-import SettingsIcon from "@mui/icons-material/Settings";
 import HomeIcon from "@mui/icons-material/Home";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 
@@ -76,21 +75,6 @@ export default function Layout() {
             <PublicIcon />
           </ListItemIcon>
           <ListItemText primary="Worlds" />
-        </ListItemButton>
-      </List>
-      <Divider />
-      <List>
-        <ListItemButton
-          selected={location.pathname === "/settings"}
-          onClick={() => {
-            navigate("/settings");
-            setMobileOpen(false);
-          }}
-        >
-          <ListItemIcon>
-            <SettingsIcon />
-          </ListItemIcon>
-          <ListItemText primary="Settings" />
         </ListItemButton>
       </List>
     </Box>

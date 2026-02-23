@@ -1,39 +1,8 @@
 import type { ToolResponse } from "../types";
 
-// ─── Config ─────────────────────────────────────────────────────
-const STORAGE_KEY_URL = "wb_api_url";
-const STORAGE_KEY_KEY = "wb_api_key";
-
-const DEFAULT_URL =
-  import.meta.env.VITE_WORLDBUILDER_API_URL ??
-  "https://us-central1-PROJECT_ID.cloudfunctions.net/mcp/mcp";
-const DEFAULT_KEY = import.meta.env.VITE_WORLDBUILDER_API_KEY ?? "";
-
-export function getApiUrl(): string {
-  return localStorage.getItem(STORAGE_KEY_URL) || DEFAULT_URL;
-}
-
-export function getApiKey(): string {
-  return localStorage.getItem(STORAGE_KEY_KEY) || DEFAULT_KEY;
-}
-
-export function setApiUrl(url: string) {
-  localStorage.setItem(STORAGE_KEY_URL, url);
-}
-
-export function setApiKey(key: string) {
-  localStorage.setItem(STORAGE_KEY_KEY, key);
-}
-
-export function isConfigured(): boolean {
-  const url = getApiUrl();
-  const key = getApiKey();
-  return (
-    !!url &&
-    !url.includes("PROJECT_ID") &&
-    !!key
-  );
-}
+// ─── Config (set via env vars at build time) ────────────────────
+const API_URL = import.meta.env.VITE_WORLDBUILDER_API_URL ?? "";
+const API_KEY = import.meta.env.VITE_WORLDBUILDER_API_KEY ?? "";
 
 // ─── Core RPC caller ────────────────────────────────────────────
 let requestId = 0;
@@ -43,8 +12,6 @@ export async function callTool<T = unknown>(
   args: Record<string, unknown> = {}
 ): Promise<ToolResponse<T>> {
   const id = ++requestId;
-  const API_URL = getApiUrl();
-  const API_KEY = getApiKey();
 
   const response = await fetch(API_URL, {
     method: "POST",

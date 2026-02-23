@@ -7,7 +7,6 @@ import EntityList from "./pages/EntityList";
 import EntityDetail from "./pages/EntityDetail";
 import TimelinePage from "./pages/Timeline";
 import RelationshipsPage from "./pages/Relationships";
-import Settings from "./pages/Settings";
 
 export default function App() {
   return (
@@ -21,7 +20,6 @@ export default function App() {
           <Route path="/worlds/:worldId/graph" element={<RelationshipsPage />} />
           <Route path="/worlds/:worldId/:entityType" element={<EntityList />} />
           <Route path="/worlds/:worldId/:entityType/:entityId" element={<EntityDetail />} />
-          <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
     </HashRouter>
