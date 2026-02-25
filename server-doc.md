@@ -12,7 +12,7 @@ Complete guide for consuming the Worldbuilder Firebase Cloud Functions API from 
 - [Making Requests (MCP over HTTP)](#making-requests-mcp-over-http)
 - [React Integration Guide](#react-integration-guide)
 - [API Reference — Worlds](#api-reference--worlds)
-- [API Reference — Entity CRUD (13 Types)](#api-reference--entity-crud-13-types)
+- [API Reference — Entity CRUD (18 Types)](#api-reference--entity-crud-18-types)
 - [Entity Schemas](#entity-schemas)
   - [Characters](#characters)
   - [Factions](#factions)
@@ -26,6 +26,11 @@ Complete guide for consuming the Worldbuilder Firebase Cloud Functions API from 
   - [Events](#events)
   - [Lore](#lore)
   - [Economies](#economies)
+  - [Abilities](#abilities)
+  - [Conflicts](#conflicts)
+  - [Galactic Regions](#galactic-regions)
+  - [Religions](#religions)
+  - [Star Systems](#star-systems)
   - [Relationships](#relationships)
 - [API Reference — Special Tools](#api-reference--special-tools)
   - [Relationship Graph Traversal](#relationship-graph-traversal)
@@ -40,7 +45,7 @@ Complete guide for consuming the Worldbuilder Firebase Cloud Functions API from 
 
 ## Overview
 
-The Worldbuilder server is a **Firebase Cloud Function** that exposes a single HTTP endpoint implementing the **Model Context Protocol (MCP)** over Streamable HTTP. It provides a complete CRUD API for managing game worlds and their entities — characters, factions, planets, locations, technologies, vehicles, species, items, quests, events, lore, economies, and relationships.
+The Worldbuilder server is a **Firebase Cloud Function** that exposes a single HTTP endpoint implementing the **Model Context Protocol (MCP)** over Streamable HTTP. It provides a complete CRUD API for managing game worlds and their entities — characters, factions, planets, locations, technologies, vehicles, species, items, quests, events, lore, economies, abilities, conflicts, galactic regions, religions, star systems, and relationships.
 
 | Property        | Value                                                                            |
 | --------------- | -------------------------------------------------------------------------------- |
@@ -324,6 +329,7 @@ Create a new game world.
   "id": "custom-id",                              // optional — auto-generated if omitted
   "description": "A sprawling sci-fi universe",   // optional
   "genre": "sci-fi",                              // optional
+  "systemPrompt": "You are a GM...",              // optional — custom system prompt
   "tags": ["space-opera", "hard-sci-fi"],          // default: []
   "settings": {                                    // optional
     "techLevel": "spacefaring",
@@ -333,7 +339,29 @@ Create a new game world.
     "timelineEnd": "Year 5000",
     "scale": "galaxy",
     "tone": "heroic",
-    "themes": ["exploration", "politics"]
+    "themes": ["exploration", "politics"],
+    "galaxyShape": "spiral",                      // optional — "spiral", "elliptical", "irregular", "ring", "lenticular"
+    "galaxyRadius": 50000,                        // optional — radius in light-years
+    "galaxyArmCount": 4,                          // optional — number of spiral arms
+    "galaxyArmWindingAngle": 0.5,                 // optional — arm winding tightness
+    "galaxyBarLength": 10000,                     // optional — central bar length
+    "galaxyBulgeRadius": 5000,                    // optional — central bulge radius
+    "galaxyDiskThickness": 1000,                  // optional — disk thickness
+    "galaxyEllipticity": 0.5,                     // optional — elliptical eccentricity
+    "galaxyRingInnerRadius": 20000,               // optional — ring inner radius
+    "galaxyRingOuterRadius": 40000,               // optional — ring outer radius
+    "ftlMethod": "warp drive",                    // optional — faster-than-light method
+    "communicationMethod": "ansible",             // optional — interstellar comms method
+    "calendarSystem": "Galactic Standard",        // optional — calendar system name
+    "cosmology": "Big Bang origin",               // optional — universe cosmology
+    "dimensionCount": 4,                          // optional — number of dimensions
+    "dominantGovernment": "federation",           // optional — dominant government type
+    "explorationLevel": "partially explored",     // optional — how much is explored
+    "galacticAge": "13 billion years",            // optional — age of the galaxy
+    "physicsRules": "standard with FTL",          // optional — physics rules
+    "primaryCurrency": "credits",                 // optional — primary currency
+    "afterlifeExists": true,                      // optional — whether afterlife exists
+    "afterlifeDescription": "Souls join the Void" // optional — afterlife description
   }
 }
 ```
@@ -358,7 +386,7 @@ Only provided fields are updated.
 
 ### `delete_world`
 
-**Irreversible.** Deletes the world and ALL entities within it (all 13 subcollections are cascade-deleted).
+**Irreversible.** Deletes the world and ALL entities within it (all 18 subcollections are cascade-deleted).
 
 ```json
 { "worldId": "elysium-reach" }
@@ -375,7 +403,7 @@ Only provided fields are updated.
 
 ---
 
-## API Reference — Entity CRUD (13 Types)
+## API Reference — Entity CRUD (18 Types)
 
 Every entity type follows an **identical CRUD pattern**. The tool names use this convention:
 
@@ -405,6 +433,11 @@ Every entity type follows an **identical CRUD pattern**. The tool names use this
 | Event        | `event`           | `events`                    |
 | Lore         | `lore`            | `lore`                      |
 | Economy      | `economy`         | `economies`                 |
+| Ability      | `ability`         | `abilities`                 |
+| Conflict     | `conflict`        | `conflicts`                 |
+| Galactic Region | `galactic_region` | `galactic-regions`       |
+| Religion     | `religion`        | `religions`                 |
+| Star System  | `star_system`     | `star-systems`              |
 | Relationship | `relationship`    | `relationships`             |
 
 ### Generic CRUD Example (Characters)
@@ -788,6 +821,142 @@ All `search_*` tools accept this flexible query format:
 
 **List filters:** `type`, `economicSystem`
 
+### Abilities
+
+| Field                    | Type     | Required | Description                                      |
+| ------------------------ | -------- | -------- | ------------------------------------------------ |
+| `name`                   | string   | ✅        | Ability name                                     |
+| `description`            | string   |          | Detailed description                             |
+| `type`                   | string   |          | "psionic", "biotic", "technological", "magical", "genetic", "cybernetic", "divine", "elemental", "temporal" |
+| `category`               | string   |          | "offensive", "defensive", "utility", "support", "passive" |
+| `rarity`                 | enum     |          | `common` \| `uncommon` \| `rare` \| `legendary` \| `unique` (default: `common`) |
+| `source`                 | string   |          | Origin of the power                              |
+| `effects`                | string[] |          | Mechanical and narrative effects                 |
+| `risks`                  | string[] |          | Side effects, dangers, or drawbacks              |
+| `cost`                   | string   |          | Energy/mana/stamina cost                         |
+| `cooldown`               | string   |          | Cooldown period                                  |
+| `duration`               | string   |          | Effect duration                                  |
+| `range`                  | string   |          | Effective range                                  |
+| `requirements`           | string   |          | Prerequisites to use                             |
+| `learnable`              | boolean  |          | Whether can be learned (default: true)           |
+| `prerequisiteAbilityIds` | string[] |          | Ability IDs that must be learned first           |
+| `speciesRestrictionIds`  | string[] |          | Species IDs that can use (empty = universal)     |
+| `technologyId`           | string   |          | Associated technology ID                         |
+| `loreText`               | string   |          | Flavor text                                      |
+| `tags`                   | string[] |          | Tags                                             |
+
+**List filters:** `type`, `category`, `rarity`
+
+### Conflicts
+
+| Field                         | Type     | Required | Description                                      |
+| ----------------------------- | -------- | -------- | ------------------------------------------------ |
+| `name`                        | string   | ✅        | Conflict name                                    |
+| `description`                 | string   |          | Detailed description                             |
+| `type`                        | string   |          | "war", "civil-war", "rebellion", "border-conflict", "trade-war", "cold-war", "siege", "proxy-war", "insurgency", "genocide" |
+| `status`                      | enum     |          | `brewing` \| `active` \| `ceasefire` \| `resolved` \| `stalemate` \| `escalating` (default: `brewing`) |
+| `cause`                       | string   |          | What started it                                  |
+| `startDate`                   | string   |          | In-world start date                              |
+| `endDate`                     | string   |          | In-world end date                                |
+| `era`                         | string   |          | Historical era                                   |
+| `belligerents`                | object[] |          | `[{factionId, role: "aggressor"\|"defender"\|"ally"\|"neutral-observer", strength?}]` |
+| `commanderCharacterIds`       | string[] |          | Commander character IDs                          |
+| `theaterSystemIds`            | string[] |          | Star system IDs involved                         |
+| `theaterPlanetIds`            | string[] |          | Planet IDs involved                              |
+| `theaterLocationIds`          | string[] |          | Location IDs involved                            |
+| `strategicObjectives`         | string[] |          | Military/political objectives                    |
+| `consequences`                | string[] |          | Lasting consequences                             |
+| `outcome`                     | string   |          | How ended or trending                            |
+| `casualties`                  | string   |          | Casualty description                             |
+| `economicImpact`              | string   |          | Economic consequences                            |
+| `publicSentiment`             | string   |          | Public sentiment                                 |
+| `technologicalBreakthroughIds`| string[] |          | Tech IDs developed during conflict               |
+| `relatedEventIds`             | string[] |          | Related event IDs                                |
+| `treatyName`                  | string   |          | Ending treaty name                               |
+| `tags`                        | string[] |          | Tags                                             |
+
+**List filters:** `type`, `status`, `era`
+
+### Galactic Regions
+
+| Field                  | Type          | Required | Description                                  |
+| ---------------------- | ------------- | -------- | -------------------------------------------- |
+| `name`                 | string        | ✅        | Region name                                  |
+| `description`          | string        |          | Detailed description                         |
+| `type`                 | string        |          | "core", "arm", "rim", "void", "nebula", "cluster", "halo", "rift" |
+| `bounds`               | object        |          | `{azimuthStart, azimuthEnd, distanceMin, distanceMax, elevationMin?, elevationMax?}` |
+| `center`               | object        |          | `{azimuth, distance, elevation}` — for map rendering |
+| `color`                | string        |          | Hex color for map rendering                  |
+| `opacity`              | number (0–1)  |          | Translucency for map overlay                 |
+| `density`              | string        |          | "sparse", "moderate", "dense"                |
+| `navigability`         | string        |          | "safe", "moderate", "dangerous", "uncharted", "impassable" |
+| `strategicValue`       | string        |          | "negligible", "low", "moderate", "high", "critical" |
+| `controllingFactionId` | string        |          | Controlling faction ID                       |
+| `connectedRegionIds`   | string[]      |          | Adjacent region IDs                          |
+| `resources`            | string[]      |          | Common resources                             |
+| `hazards`              | string[]      |          | Region hazards                               |
+| `history`              | string        |          | Region history                               |
+| `tags`                 | string[]      |          | Tags                                         |
+
+**List filters:** `type`, `controllingFactionId`, `density`, `navigability`
+
+### Religions
+
+| Field                    | Type     | Required | Description                                      |
+| ------------------------ | -------- | -------- | ------------------------------------------------ |
+| `name`                   | string   | ✅        | Religion name                                    |
+| `description`            | string   |          | Detailed description                             |
+| `type`                   | string   |          | "monotheistic", "polytheistic", "animistic", "ancestor-worship", "philosophical", "cosmic", "machine-cult", "void-worship", "deistic", "pantheistic" |
+| `status`                 | enum     |          | `active` \| `declining` \| `extinct` \| `underground` \| `state-religion` (default: `active`) |
+| `alignment`              | string   |          | "benevolent", "neutral", "malevolent", "ambiguous" |
+| `influence`              | string   |          | "fringe", "minor", "regional", "planetary", "interstellar", "universal" |
+| `deities`                | object[] |          | `[{name, title?, domain?, description?}]`        |
+| `beliefs`                | string[] |          | Core tenets                                      |
+| `practices`              | string[] |          | Rituals and ceremonies                           |
+| `taboos`                 | string[] |          | Forbidden acts                                   |
+| `prophecies`             | string[] |          | Known prophecies                                 |
+| `holyTexts`              | object[] |          | `[{name, description?}]`                         |
+| `symbol`                 | string   |          | Symbol description                               |
+| `organizationStructure`  | string   |          | Hierarchy                                        |
+| `founderCharacterId`     | string   |          | Founder character ID                             |
+| `foundingEra`            | string   |          | Founding era                                     |
+| `controllingFactionId`   | string   |          | Church/temple faction ID                         |
+| `followingSpeciesIds`    | string[] |          | Species IDs that follow                          |
+| `sacredLocationIds`      | string[] |          | Sacred site location IDs                         |
+| `sacredItemIds`          | string[] |          | Holy relic item IDs                              |
+| `afterlifeBeliefs`       | string   |          | Afterlife beliefs                                |
+| `history`                | string   |          | Religion history                                 |
+| `tags`                   | string[] |          | Tags                                             |
+
+**List filters:** `type`, `status`, `alignment`, `influence`
+
+### Star Systems
+
+| Field                  | Type     | Required | Description                                  |
+| ---------------------- | -------- | -------- | -------------------------------------------- |
+| `name`                 | string   | ✅        | System name                                  |
+| `description`          | string   |          | Detailed description                         |
+| `systemType`           | string   |          | "single", "binary", "trinary", "quaternary"  |
+| `status`               | enum     |          | `explored` \| `uncharted` \| `restricted` \| `contested` \| `abandoned` (default: `explored`) |
+| `galacticRegionId`     | string   |          | Parent galactic region ID                    |
+| `position`             | object   |          | `{azimuth, distance, elevation}` — galactic coordinates |
+| `stars`                | object[] |          | `[{name, spectralClass?, color?, radius?, mass?, luminosityClass?, surfaceTemperature?, orbitRadius?, orbitAngle?}]` |
+| `numberOfPlanets`      | integer  |          | Planet count                                 |
+| `controllingFactionId` | string   |          | Controlling faction ID                       |
+| `discoveredByFactionId`| string   |          | Discovering faction ID                       |
+| `discoveryDate`        | string   |          | Discovery date                               |
+| `strategicValue`       | string   |          | "negligible", "low", "moderate", "high", "critical" |
+| `habitableZone`        | string   |          | Habitable zone description                   |
+| `connectedSystemIds`   | string[] |          | Connected system IDs (jump gates, etc.)      |
+| `resources`            | string[] |          | System resources                             |
+| `hazards`              | string[] |          | System hazards                               |
+| `age`                  | string   |          | System age                                   |
+| `luminosity`           | string   |          | System luminosity                            |
+| `history`              | string   |          | System history                               |
+| `tags`                 | string[] |          | Tags                                         |
+
+**List filters:** `systemType`, `status`, `galacticRegionId`, `controllingFactionId`, `strategicValue`
+
 ### Relationships
 
 | Field           | Type                     | Required | Description                                    |
@@ -804,7 +973,7 @@ All `search_*` tools accept this flexible query format:
 | `status`        | enum                     |          | `active` \| `inactive` \| `broken` \| `secret` \| `historical` (default: `active`) |
 | `tags`          | string[]                 |          | Tags                                           |
 
-**Relationship types:** `ALLIED_WITH`, `ENEMY_OF`, `MEMBER_OF`, `LEADER_OF`, `LOCATED_AT`, `LOCATED_ON`, `PARENT_OF`, `CHILD_OF`, `TRADES_WITH`, `CONTROLS`, `CREATED_BY`, `OWNS`, `SERVES`, `WORSHIPS`, `STUDIES`, `MANUFACTURES`, `SUPPLIES`, `RIVALS`, `MENTORS`, `PROTECTS`, `THREATENS`, `INHABITS`, `CUSTOM`
+**Relationship types:** `ALLIED_WITH`, `ENEMY_OF`, `MEMBER_OF`, `LEADER_OF`, `LOCATED_AT`, `LOCATED_ON`, `PARENT_OF`, `CHILD_OF`, `TRADES_WITH`, `CONTROLS`, `CREATED_BY`, `OWNS`, `SERVES`, `WORSHIPS`, `MENTORS`, `PROTECTS`, `THREATENS`, `INHABITS`, `CUSTOM`
 
 **List filters:** `type`, `sourceType`, `targetType`, `status`
 
@@ -980,7 +1149,7 @@ The most versatile search tool — query any entity type with flexible filters, 
 }
 ```
 
-**Supported `entityType` values:** `characters`, `factions`, `planets`, `locations`, `items`, `quests`, `events`, `lore`, `technologies`, `vehicles`, `species`, `economies`, `relationships`
+**Supported `entityType` values:** `characters`, `factions`, `planets`, `locations`, `items`, `quests`, `events`, `lore`, `technologies`, `vehicles`, `species`, `economies`, `abilities`, `conflicts`, `galactic-regions`, `religions`, `star-systems`, `relationships`
 
 ---
 
@@ -1097,6 +1266,11 @@ try {
   ├── /events/{eventId}
   ├── /lore/{loreId}
   ├── /economies/{economyId}
+  ├── /abilities/{abilityId}
+  ├── /conflicts/{conflictId}
+  ├── /galactic-regions/{galacticRegionId}
+  ├── /religions/{religionId}
+  ├── /star-systems/{starSystemId}
   └── /relationships/{relationshipId}
 ```
 
@@ -1154,13 +1328,13 @@ VITE_WORLDBUILDER_API_KEY=any-value
 | `update_world`                 | Update world metadata/settings                           |
 | `delete_world`                 | Delete a world and all entities (irreversible)            |
 | `list_worlds`                  | List all worlds with pagination                          |
-| `create_{entity}`              | Create entity (×13 types)                                |
-| `get_{entity}`                 | Get entity by ID (×13 types)                             |
-| `update_{entity}`              | Update entity (×13 types)                                |
-| `delete_{entity}`              | Delete entity (×13 types)                                |
-| `list_{collection}`            | List entities with filters (×13 types)                   |
-| `search_{collection}`          | Search entities with flexible queries (×13 types)        |
-| `batch_create_{collection}`    | Batch create up to 500 entities (×13 types)              |
+| `create_{entity}`              | Create entity (×18 types)                                |
+| `get_{entity}`                 | Get entity by ID (×18 types)                             |
+| `update_{entity}`              | Update entity (×18 types)                                |
+| `delete_{entity}`              | Delete entity (×18 types)                                |
+| `list_{collection}`            | List entities with filters (×18 types)                   |
+| `search_{collection}`          | Search entities with flexible queries (×18 types)        |
+| `batch_create_{collection}`    | Batch create up to 500 entities (×18 types)              |
 | `find_entity_relationships`    | Find all relationships for an entity                     |
 | `get_timeline`                 | Get chronological event timeline                         |
 | `get_npc_context`              | Get rich NPC context (faction, species, inventory, etc.) |
@@ -1171,4 +1345,4 @@ VITE_WORLDBUILDER_API_KEY=any-value
 | `update_game_state`            | Batch update up to 500 entities (atomic)                 |
 | `query_world`                  | Flexible query on any entity type                        |
 
-**Total: 96 tools** (5 world + 91 entity CRUD [7 × 13] + 7 special)
+**Total: 140 tools** (5 world + 126 entity CRUD [7 × 18] + 9 special)

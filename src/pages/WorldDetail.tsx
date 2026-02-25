@@ -26,6 +26,11 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import HubIcon from "@mui/icons-material/Hub";
 import TimelineIcon from "@mui/icons-material/Timeline";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import LocalFireDepartmentIcon from "@mui/icons-material/LocalFireDepartment";
+import RadarIcon from "@mui/icons-material/Radar";
+import SelfImprovementIcon from "@mui/icons-material/SelfImprovement";
+import StarsIcon from "@mui/icons-material/Stars";
 import { useToolQuery } from "../hooks/useWorldbuilder";
 import LoadingState from "../components/LoadingState";
 import type { EntityType, WorldSummary } from "../types";
@@ -45,6 +50,11 @@ const ICONS: Record<EntityType, React.ReactNode> = {
   lore: <MenuBookIcon />,
   economies: <AccountBalanceIcon />,
   relationships: <HubIcon />,
+  abilities: <AutoAwesomeIcon />,
+  conflicts: <LocalFireDepartmentIcon />,
+  "galactic-regions": <RadarIcon />,
+  religions: <SelfImprovementIcon />,
+  "star-systems": <StarsIcon />,
 };
 
 export default function WorldDetail() {

@@ -17,6 +17,30 @@ export interface WorldSettings {
   scale?: string;
   tone?: string;
   themes?: string[];
+  // Galaxy settings
+  galaxyShape?: string;
+  galaxyRadius?: number;
+  galaxyArmCount?: number;
+  galaxyArmWindingAngle?: number;
+  galaxyBarLength?: number;
+  galaxyBulgeRadius?: number;
+  galaxyDiskThickness?: number;
+  galaxyEllipticity?: number;
+  galaxyRingInnerRadius?: number;
+  galaxyRingOuterRadius?: number;
+  // Civilization & cosmology settings
+  ftlMethod?: string;
+  communicationMethod?: string;
+  calendarSystem?: string;
+  cosmology?: string;
+  dimensionCount?: number;
+  dominantGovernment?: string;
+  explorationLevel?: string;
+  galacticAge?: string;
+  physicsRules?: string;
+  primaryCurrency?: string;
+  afterlifeExists?: boolean;
+  afterlifeDescription?: string;
 }
 
 export interface World {
@@ -26,6 +50,7 @@ export interface World {
   genre?: string;
   tags?: string[];
   status?: string;
+  systemPrompt?: string;
   settings?: WorldSettings;
   entityCounts?: Record<string, number>;
   createdAt?: string;
@@ -46,20 +71,30 @@ export type EntityType =
   | "events"
   | "lore"
   | "economies"
-  | "relationships";
+  | "relationships"
+  | "abilities"
+  | "conflicts"
+  | "galactic-regions"
+  | "religions"
+  | "star-systems";
 
 export const ENTITY_TYPES: EntityType[] = [
   "characters",
   "factions",
+  "species",
   "planets",
+  "star-systems",
+  "galactic-regions",
   "locations",
   "technologies",
   "vehicles",
-  "species",
   "items",
+  "abilities",
   "quests",
   "events",
+  "conflicts",
   "lore",
+  "religions",
   "economies",
   "relationships",
 ];
@@ -79,6 +114,11 @@ export const ENTITY_SINGULAR: Record<EntityType, string> = {
   lore: "lore",
   economies: "economy",
   relationships: "relationship",
+  abilities: "ability",
+  conflicts: "conflict",
+  "galactic-regions": "galactic_region",
+  religions: "religion",
+  "star-systems": "star_system",
 };
 
 /** Human-readable labels */
@@ -96,6 +136,11 @@ export const ENTITY_LABELS: Record<EntityType, string> = {
   lore: "Lore",
   economies: "Economies",
   relationships: "Relationships",
+  abilities: "Abilities",
+  conflicts: "Conflicts",
+  "galactic-regions": "Galactic Regions",
+  religions: "Religions",
+  "star-systems": "Star Systems",
 };
 
 /** MUI icon names per entity (used for display) */
@@ -113,6 +158,11 @@ export const ENTITY_ICONS: Record<EntityType, string> = {
   lore: "MenuBook",
   economies: "AccountBalance",
   relationships: "Hub",
+  abilities: "AutoAwesome",
+  conflicts: "LocalFireDepartment",
+  "galactic-regions": "Radar",
+  religions: "SelfImprovement",
+  "star-systems": "Stars",
 };
 
 // ─── Generic entity (common fields) ────────────────────────────
