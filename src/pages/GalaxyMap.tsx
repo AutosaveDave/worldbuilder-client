@@ -94,13 +94,13 @@ function cylToCartesian(azimuth: number, distance: number, elevation: number): [
 /** Map spectral class to hex color */
 function spectralColor(spectralClass: string): string {
   const map: Record<string, string> = {
-    O: "#9bb0ff",
-    B: "#aabfff",
-    A: "#cad7ff",
-    F: "#f8f7ff",
-    G: "#fff4ea",
-    K: "#ffd2a1",
-    M: "#ffad60",
+    O: "#5c7aff",
+    B: "#7a9fff",
+    A: "#a4bfff",
+    F: "#f5f0ff",
+    G: "#ffe44d",
+    K: "#ff8c00",
+    M: "#ff4500",
   };
   return map[spectralClass?.toUpperCase()] ?? "#ffffff";
 }
@@ -185,7 +185,7 @@ function StarMarker({
 
       {/* Hover label */}
       {hovered && (
-        <Html distanceFactor={20} style={{ pointerEvents: "none" }}>
+        <Html distanceFactor={8} style={{ pointerEvents: "none" }}>
           <Paper
             elevation={8}
             sx={{
@@ -248,7 +248,7 @@ function OrbitEllipse({
 }) {
   const points = useMemo(() => {
     const pts: [number, number, number][] = [];
-    const a = semiMajorAxis * 6; // scale for visual display
+    const a = semiMajorAxis * 9; // scale for visual display (×1.5 for spacing)
     const b = a * Math.sqrt(1 - eccentricity * eccentricity);
     const inc = inclination * DEG2RAD;
     const segments = 96;
@@ -278,7 +278,7 @@ function PlanetSphere({
   const [hovered, setHovered] = useState(false);
 
   const { orbit, render: r } = planet;
-  const a = orbit.semiMajorAxis * 6;
+  const a = orbit.semiMajorAxis * 9;
   const b = a * Math.sqrt(1 - orbit.eccentricity * orbit.eccentricity);
   const angle = orbit.currentAngle * DEG2RAD;
   const inc = orbit.inclination * DEG2RAD;
@@ -333,7 +333,7 @@ function PlanetSphere({
 
       {/* Hover label */}
       {(hovered || showLabel) && (
-        <Html distanceFactor={15} style={{ pointerEvents: "none" }}>
+        <Html distanceFactor={6} style={{ pointerEvents: "none" }}>
           <Paper
             elevation={8}
             sx={{
