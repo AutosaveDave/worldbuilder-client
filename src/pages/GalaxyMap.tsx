@@ -14,8 +14,8 @@ import {
   alpha,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useToolQuery } from "../hooks/useWorldbuilder";
-import type { Entity } from "../types";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../api/firebase";
 
 // ─── Types ──────────────────────────────────────────────────────
 interface StarData {
@@ -29,7 +29,10 @@ interface StarData {
   orbitAngle?: number;
 }
 
-interface StarSystem extends Entity {
+interface StarSystem {
+  id: string;
+  name: string;
+  description?: string;
   systemType: string;
   galacticRegionId: string;
   position: { azimuth: number; distance: number; elevation: number };
@@ -59,7 +62,10 @@ interface PlanetRender {
   cloudCover: number;
 }
 
-interface Planet extends Entity {
+interface Planet {
+  id: string;
+  name: string;
+  description?: string;
   type: string;
   climate: string;
   atmosphere: string;
@@ -598,20 +604,38 @@ export default function GalaxyMap() {
   const { worldId } = useParams<{ worldId: string }>();
   const navigate = useNavigate();
   const [selectedSystem, setSelectedSystem] = useState<StarSystem | null>(null);
+  const [starSystems, setStarSystems] = useState<StarSystem[] | null>(null);
+  const [planets, setPlanets] = useState<Planet[] | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch star systems
-  const {
-    data: starSystems,
-    loading: loadingSystems,
-  } = useToolQuery<StarSystem[]>("list_star_systems", { worldId: worldId!, limit: 200 }, [worldId]);
+  // Fetch star systems and planets directly from Firestore
+  useEffect(() => {
+    if (!worldId) return;
+    let cancelled = false;
+    setLoading(true);
 
-  // Fetch planets
-  const {
-    data: planets,
-    loading: loadingPlanets,
-  } = useToolQuery<Planet[]>("list_planets", { worldId: worldId!, limit: 200 }, [worldId]);
+    Promise.all([
+      getDocs(collection(db, "worlds", worldId, "star-systems")),
+      getDocs(collection(db, "worlds", worldId, "planets")),
+    ])
+      .then(([sysSnap, planetSnap]) => {
+        if (cancelled) return;
+        setStarSystems(
+          sysSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as StarSystem))
+        );
+        setPlanets(
+          planetSnap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as Planet))
+        );
+      })
+      .catch((err) => {
+        console.error("Firestore fetch error:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-  const loading = loadingSystems || loadingPlanets;
+    return () => { cancelled = true; };
+  }, [worldId]);
 
   const handleSelectSystem = useCallback((system: StarSystem | null) => {
     setSelectedSystem(system);
