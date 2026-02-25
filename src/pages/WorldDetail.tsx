@@ -31,6 +31,7 @@ import LocalFireDepartmentIcon from "@mui/icons-material/LocalFireDepartment";
 import RadarIcon from "@mui/icons-material/Radar";
 import SelfImprovementIcon from "@mui/icons-material/SelfImprovement";
 import StarsIcon from "@mui/icons-material/Stars";
+import MapIcon from "@mui/icons-material/Map";
 import { useToolQuery } from "../hooks/useWorldbuilder";
 import LoadingState from "../components/LoadingState";
 import type { EntityType, WorldSummary } from "../types";
@@ -172,9 +173,9 @@ export default function WorldDetail() {
               })}
             </Grid>
 
-            {/* Timeline shortcut */}
+            {/* Timeline / Graph / Galaxy shortcuts */}
             <Grid container spacing={2} mb={4}>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <Card>
                   <CardActionArea onClick={() => navigate(`/worlds/${worldId}/timeline`)}>
                     <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -191,7 +192,7 @@ export default function WorldDetail() {
                   </CardActionArea>
                 </Card>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <Card>
                   <CardActionArea onClick={() => navigate(`/worlds/${worldId}/graph`)}>
                     <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -202,6 +203,23 @@ export default function WorldDetail() {
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Explore entity connections
+                        </Typography>
+                      </Box>
+                    </CardContent>
+                  </CardActionArea>
+                </Card>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <Card>
+                  <CardActionArea onClick={() => navigate(`/worlds/${worldId}/galaxy`)}>
+                    <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <MapIcon color="secondary" sx={{ fontSize: 36 }} />
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          Galaxy Map
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Explore star systems in 3D
                         </Typography>
                       </Box>
                     </CardContent>

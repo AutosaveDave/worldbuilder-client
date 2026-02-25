@@ -7,6 +7,7 @@ import EntityList from "./pages/EntityList";
 import EntityDetail from "./pages/EntityDetail";
 import TimelinePage from "./pages/Timeline";
 import RelationshipsPage from "./pages/Relationships";
+import GalaxyMap from "./pages/GalaxyMap";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="/worlds/:worldId" element={<WorldDetail />} />
           <Route path="/worlds/:worldId/timeline" element={<TimelinePage />} />
           <Route path="/worlds/:worldId/graph" element={<RelationshipsPage />} />
+          <Route path="/worlds/:worldId/galaxy" element={<GalaxyMap />} />
           <Route path="/worlds/:worldId/:entityType" element={<EntityList />} />
           <Route path="/worlds/:worldId/:entityType/:entityId" element={<EntityDetail />} />
         </Route>
