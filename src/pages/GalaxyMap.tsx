@@ -288,7 +288,7 @@ function PlanetSphere({
   const y = z * Math.sin(inc);
   const zr = z * Math.cos(inc);
 
-  const displayRadius = Math.max(0.25, r.radius * 0.5);
+  const displayRadius = Math.max(0.25, Math.sqrt(r.radius) * 0.45);
 
   const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
@@ -313,8 +313,9 @@ function PlanetSphere({
         <meshStandardMaterial
           color={r.primaryColor}
           emissive={r.primaryColor}
-          emissiveIntensity={0.15}
-          roughness={0.7}
+          emissiveIntensity={0.08}
+          roughness={0.55}
+          metalness={0.05}
         />
       </mesh>
 
@@ -393,19 +394,20 @@ function SystemDetailScene({
 }) {
   const primaryStar = system.stars[0];
   const primaryColor = spectralColor(primaryStar.spectralClass);
+  const primaryDisplayR = Math.max(0.6, Math.sqrt(primaryStar.radius) * 0.8);
 
   return (
     <group>
       {/* Central star */}
       <mesh>
-        <sphereGeometry args={[1.2, 32, 32]} />
+        <sphereGeometry args={[primaryDisplayR, 32, 32]} />
         <meshBasicMaterial color={primaryColor} />
       </mesh>
-      <pointLight color={primaryColor} intensity={3} distance={60} decay={1.5} />
+      <pointLight color={primaryColor} intensity={8} distance={120} decay={1.2} />
 
       {/* Star glow */}
       <mesh>
-        <sphereGeometry args={[1.8, 32, 32]} />
+        <sphereGeometry args={[primaryDisplayR * 1.5, 32, 32]} />
         <meshBasicMaterial color={primaryColor} transparent opacity={0.10} />
       </mesh>
 
@@ -413,6 +415,7 @@ function SystemDetailScene({
       {system.stars.length > 1 && system.stars[1] && (() => {
         const s2 = system.stars[1];
         const sColor = spectralColor(s2.spectralClass);
+        const s2DisplayR = Math.max(0.4, Math.sqrt(s2.radius) * 0.6);
         const orbitR = (s2.orbitRadius ?? 0.2) * 20;
         const angle = (s2.orbitAngle ?? 0) * DEG2RAD;
         const sx = orbitR * Math.cos(angle);
@@ -420,12 +423,12 @@ function SystemDetailScene({
         return (
           <group position={[sx, 0, sz]}>
             <mesh>
-              <sphereGeometry args={[0.6, 24, 24]} />
+              <sphereGeometry args={[s2DisplayR, 24, 24]} />
               <meshBasicMaterial color={sColor} />
             </mesh>
-            <pointLight color={sColor} intensity={1.5} distance={30} decay={2} />
+            <pointLight color={sColor} intensity={5} distance={80} decay={1.5} />
             <mesh>
-              <sphereGeometry args={[0.9, 24, 24]} />
+              <sphereGeometry args={[s2DisplayR * 1.5, 24, 24]} />
               <meshBasicMaterial color={sColor} transparent opacity={0.08} />
             </mesh>
           </group>
@@ -559,7 +562,7 @@ function GalaxyScene({
       <Stars radius={120} depth={80} count={3000} factor={3} saturation={0.1} fade speed={0.5} />
 
       {/* Ambient + directional */}
-      <ambientLight intensity={0.15} />
+      <ambientLight intensity={0.06} />
 
       {/* Galactic center glow */}
       {!selectedSystem && (
