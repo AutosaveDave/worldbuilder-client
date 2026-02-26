@@ -16,6 +16,7 @@ import {
   alpha,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import CloseIcon from "@mui/icons-material/Close";
 import PublicIcon from "@mui/icons-material/Public";
 import ExploreIcon from "@mui/icons-material/Explore";
 import { collection, getDocs } from "firebase/firestore";
@@ -530,12 +531,6 @@ function GalaxyScene({
     return planets.filter((p) => p.starSystemId === selectedSystem.id);
   }, [selectedSystem, planets]);
 
-  // Click on empty space deselects any selected star/planet
-  const handleBackgroundClick = useCallback(() => {
-    onSelectStarId("");
-    onSelectPlanetId("");
-  }, [onSelectStarId, onSelectPlanetId]);
-
   return (
     <>
       <CameraAnimator
@@ -551,12 +546,6 @@ function GalaxyScene({
         maxDistance={selectedSystem ? Math.min(300, Math.max(80, maxOrbitExtent * 4)) : 80}
         target={targetLook}
       />
-
-      {/* Invisible background sphere to deselect on empty-space click */}
-      <mesh onClick={handleBackgroundClick}>
-        <sphereGeometry args={[200, 8, 8]} />
-        <meshBasicMaterial visible={false} side={THREE.BackSide} />
-      </mesh>
 
       {/* Background stars */}
       <Stars radius={120} depth={80} count={3000} factor={3} saturation={0.1} fade speed={0.5} />
@@ -783,9 +772,18 @@ export default function GalaxyMap() {
                 p: 2,
               }}
             >
-              <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700, mb: 0.5 }}>
-                {sys.name}
-              </Typography>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700 }}>
+                  {sys.name}
+                </Typography>
+                <IconButton
+                  size="small"
+                  onClick={() => setSelectedStarId("")}
+                  sx={{ color: alpha("#fff", 0.5), "&:hover": { color: "#fff" } }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Stack>
               <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: "wrap" }}>
                 <Chip
                   label={sys.systemType === "binary" ? "Binary" : "Single"}
@@ -861,9 +859,16 @@ export default function GalaxyMap() {
             >
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
                 <PublicIcon sx={{ color: planet.render.primaryColor, fontSize: 20 }} />
-                <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700 }}>
+                <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700, flex: 1 }}>
                   {planet.name}
                 </Typography>
+                <IconButton
+                  size="small"
+                  onClick={() => setSelectedPlanetId("")}
+                  sx={{ color: alpha("#fff", 0.5), "&:hover": { color: "#fff" } }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
               </Stack>
               <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: "wrap" }}>
                 <Chip
