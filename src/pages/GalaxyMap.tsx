@@ -201,7 +201,7 @@ function StarMarker({
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
       >
-        <sphereGeometry args={[Math.max(displayRadius * 5, 0.7), 16, 16]} />
+        <sphereGeometry args={[Math.max(displayRadius * 2, 0.7), 16, 16]} />
         <meshBasicMaterial visible={false} />
       </mesh>
 
