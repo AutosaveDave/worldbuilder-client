@@ -556,10 +556,6 @@ function GalaxyScene({
       {/* Galactic center glow */}
       {!selectedSystem && (
         <group>
-          <mesh>
-            <sphereGeometry args={[1.2, 32, 32]} />
-            <meshBasicMaterial color="#ffd89b" transparent opacity={0.25} />
-          </mesh>
           <pointLight color="#ffd89b" intensity={2} distance={15} decay={2} />
         </group>
       )}
