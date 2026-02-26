@@ -220,7 +220,7 @@ function StarMarker({
 
       {/* Label (hover on desktop, tap on mobile) */}
       {showLabel && (
-        <Html style={{ pointerEvents: isMobile ? "auto" : "none" }}>
+        <Html transform={false} style={{ pointerEvents: isMobile ? "auto" : "none" }}>
           <Paper
             elevation={8}
             sx={{
@@ -236,7 +236,7 @@ function StarMarker({
             <Typography variant="subtitle2" sx={{ color, fontWeight: 700 }}>
               {system.name}
             </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" sx={{ color: "#aaa" }} display="block">
               {system.systemType === "binary" ? "Binary" : "Single"} system &middot;{" "}
               {primaryStar.spectralClass}-class &middot; {primaryStar.surfaceTemperature}K
             </Typography>
@@ -253,12 +253,12 @@ function StarMarker({
               </Box>
             )}
             {systemMoons.length > 0 && (
-              <Typography variant="caption" color="text.secondary" display="block" mt={0.3}>
+              <Typography variant="caption" sx={{ color: "#aaa" }} display="block" mt={0.3}>
                 + {systemMoons.length} moon{systemMoons.length > 1 ? "s" : ""}
               </Typography>
             )}
             <Stack direction="row" spacing={0.5} mt={0.5} flexWrap="wrap" useFlexGap>
-              <Chip label={system.status} size="small" sx={{ height: 18, fontSize: 10 }} />
+              <Chip label={system.status} size="small" sx={{ height: 18, fontSize: 10, color: "#ccc", borderColor: "#555" }} variant="outlined" />
             </Stack>
             {isMobile && (
               <Box
@@ -409,7 +409,7 @@ function PlanetSphere({
 
       {/* Label (hover on desktop, tap on mobile) */}
       {showInfo && (
-        <Html style={{ pointerEvents: "none" }}>
+        <Html transform={false} style={{ pointerEvents: "none" }}>
           <Paper
             elevation={8}
             sx={{
@@ -425,16 +425,16 @@ function PlanetSphere({
             <Typography variant="subtitle2" sx={{ color: r.primaryColor, fontWeight: 700 }}>
               {planet.name}
             </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" sx={{ color: "#aaa" }} display="block">
               {planet.type} &middot; {planet.climate}
             </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" sx={{ color: "#aaa" }} display="block">
               Habitability: {planet.habitability}
             </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" sx={{ color: "#aaa" }} display="block">
               Atmosphere: {planet.atmosphere}
             </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" sx={{ color: "#aaa" }} display="block">
               Gravity: {planet.gravity}
             </Typography>
             {planet.pointsOfInterest?.length > 0 && (
@@ -449,7 +449,7 @@ function PlanetSphere({
                 ))}
               </Box>
             )}
-            <Typography variant="caption" color="text.secondary" display="block" mt={0.3}>
+            <Typography variant="caption" sx={{ color: "#aaa" }} display="block" mt={0.3}>
               Orbit: {orbit.semiMajorAxis} AU &middot; Period: {orbit.orbitalPeriod} yr
             </Typography>
           </Paper>
@@ -607,9 +607,19 @@ function GalaxyScene({
       selectedSystem.position.distance,
       selectedSystem.position.elevation
     );
-    // Frame camera to fit all orbits: distance ~1.8× the max orbit extent
-    const dist = Math.max(8, maxOrbitExtent * 1.8);
-    return new THREE.Vector3(x, y + dist * 0.55, z + dist * 0.75);
+    // Frame camera to fit all orbits: compute distance from FOV
+    const halfFov = (55 / 2) * DEG2RAD;
+    const padding = 1.35; // 35% breathing room around edges
+    const camDist = Math.min(200, Math.max(10, (maxOrbitExtent * padding) / Math.tan(halfFov)));
+    // Place camera above and behind at a ~36° elevation angle
+    const elevFrac = 0.55;
+    const fwdFrac = 0.75;
+    const norm = Math.sqrt(elevFrac ** 2 + fwdFrac ** 2);
+    return new THREE.Vector3(
+      x,
+      y + (camDist * elevFrac) / norm,
+      z + (camDist * fwdFrac) / norm
+    );
   }, [selectedSystem, maxOrbitExtent]);
 
   const systemLookAt = useMemo(() => {
@@ -670,7 +680,7 @@ function GalaxyScene({
         enableDamping
         dampingFactor={0.1}
         minDistance={2}
-        maxDistance={80}
+        maxDistance={selectedSystem ? Math.min(300, Math.max(80, maxOrbitExtent * 4)) : 80}
         target={targetLook}
       />
 
