@@ -18,20 +18,6 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../api/firebase";
 
-// ─── Mobile detection hook ──────────────────────────────────────
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(pointer: coarse)").matches : false
-  );
-  useEffect(() => {
-    const mq = window.matchMedia("(pointer: coarse)");
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return isMobile;
-}
-
 // ─── Types ──────────────────────────────────────────────────────
 interface StarData {
   name: string;
@@ -136,27 +122,24 @@ function StarMarker({
   system,
   planets,
   onClick,
-  isMobile,
   isSelected,
   onSelect,
 }: {
   system: StarSystem;
   planets: Planet[];
   onClick: (system: StarSystem) => void;
-  isMobile: boolean;
   isSelected: boolean;
   onSelect: (systemId: string) => void;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
-  const [hovered, setHovered] = useState(false);
 
   const primaryStar = system.stars[0];
   const color = spectralColor(primaryStar.spectralClass);
   const pos = cylToCartesian(system.position.azimuth, system.position.distance, system.position.elevation);
   const displayRadius = starDisplayRadius(primaryStar.spectralClass, primaryStar.radius);
 
-  const showLabel = isMobile ? isSelected : hovered;
+  const showLabel = isSelected;
 
   useFrame(() => {
     if (glowRef.current) {
@@ -166,32 +149,19 @@ function StarMarker({
   });
 
   const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
-    if (isMobile) return;
     e.stopPropagation();
-    setHovered(true);
     document.body.style.cursor = "pointer";
-  }, [isMobile]);
+  }, []);
 
   const handlePointerOut = useCallback(() => {
-    if (isMobile) return;
-    setHovered(false);
     document.body.style.cursor = "auto";
-  }, [isMobile]);
+  }, []);
 
   const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    if (isMobile) {
-      if (isSelected) {
-        // Second tap enters the system
-        onClick(system);
-      } else {
-        // First tap selects / shows label
-        onSelect(system.id);
-      }
-    } else {
-      onClick(system);
-    }
-  }, [onClick, system, isMobile, isSelected, onSelect]);
+    if (isSelected) return; // already selected — use the "View System" button
+    onSelect(system.id);
+  }, [system, isSelected, onSelect]);
 
   const systemPlanets = planets.filter((p) => p.type !== "moon" && p.type !== "station");
   const systemMoons = planets.filter((p) => p.type === "moon");
@@ -230,9 +200,10 @@ function StarMarker({
 
       {/* Label (hover on desktop, tap on mobile) */}
       {showLabel && (
-        <Html transform={false} style={{ pointerEvents: isMobile ? "auto" : "none" }}>
+        <Html transform={false} style={{ pointerEvents: "auto" }}>
           <Paper
             elevation={8}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
             sx={{
               p: 1.5,
               minWidth: 200,
@@ -270,30 +241,29 @@ function StarMarker({
             <Stack direction="row" spacing={0.5} mt={0.5} flexWrap="wrap" useFlexGap>
               <Chip label={system.status} size="small" sx={{ height: 18, fontSize: 10, color: "#ccc", borderColor: "#555" }} variant="outlined" />
             </Stack>
-            {isMobile && (
-              <Box
-                onClick={(e) => { e.stopPropagation(); onClick(system); }}
-                sx={{
-                  mt: 1,
-                  py: 0.6,
-                  px: 1.5,
-                  borderRadius: 1,
-                  bgcolor: alpha(color, 0.2),
-                  border: `1px solid ${alpha(color, 0.4)}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 0.5,
-                  cursor: "pointer",
-                  "&:active": { bgcolor: alpha(color, 0.35) },
-                }}
-              >
-                <Typography variant="caption" sx={{ color, fontWeight: 700 }}>
-                  View System
-                </Typography>
-                <OpenInNewIcon sx={{ color, fontSize: 14 }} />
-              </Box>
-            )}
+            <Box
+              onClick={(e) => { e.stopPropagation(); onClick(system); }}
+              sx={{
+                mt: 1,
+                py: 0.6,
+                px: 1.5,
+                borderRadius: 1,
+                bgcolor: alpha(color, 0.2),
+                border: `1px solid ${alpha(color, 0.4)}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 0.5,
+                cursor: "pointer",
+                "&:hover": { bgcolor: alpha(color, 0.3) },
+                "&:active": { bgcolor: alpha(color, 0.35) },
+              }}
+            >
+              <Typography variant="caption" sx={{ color, fontWeight: 700 }}>
+                View System
+              </Typography>
+              <OpenInNewIcon sx={{ color, fontSize: 14 }} />
+            </Box>
           </Paper>
         </Html>
       )}
@@ -338,19 +308,14 @@ function OrbitEllipse({
 // ─── Planet Sphere (System detail view) ─────────────────────────
 function PlanetSphere({
   planet,
-  showLabel,
-  isMobile,
   isSelected,
   onSelect,
 }: {
   planet: Planet;
-  showLabel?: boolean;
-  isMobile: boolean;
   isSelected: boolean;
   onSelect: (planetId: string) => void;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const [hovered, setHovered] = useState(false);
 
   const { orbit, render: r } = planet;
   const a = Math.sqrt(orbit.semiMajorAxis) * 9;
@@ -365,27 +330,21 @@ function PlanetSphere({
 
   const displayRadius = Math.max(0.25, Math.sqrt(r.radius) * 0.45);
 
-  const showInfo = isMobile ? isSelected : (hovered || !!showLabel);
+  const showInfo = isSelected;
 
   const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
-    if (isMobile) return;
     e.stopPropagation();
-    setHovered(true);
     document.body.style.cursor = "pointer";
-  }, [isMobile]);
+  }, []);
 
   const handlePointerOut = useCallback(() => {
-    if (isMobile) return;
-    setHovered(false);
     document.body.style.cursor = "auto";
-  }, [isMobile]);
+  }, []);
 
   const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
-    if (isMobile) {
-      e.stopPropagation();
-      onSelect(isSelected ? "" : planet.id);
-    }
-  }, [isMobile, isSelected, onSelect, planet.id]);
+    e.stopPropagation();
+    onSelect(isSelected ? "" : planet.id);
+  }, [isSelected, onSelect, planet.id]);
 
   return (
     <group position={[x, y, zr]}>
@@ -473,13 +432,11 @@ function PlanetSphere({
 function SystemDetailScene({
   system,
   planets,
-  isMobile,
   selectedPlanetId,
   onSelectPlanet,
 }: {
   system: StarSystem;
   planets: Planet[];
-  isMobile: boolean;
   selectedPlanetId: string;
   onSelectPlanet: (planetId: string) => void;
 }) {
@@ -538,7 +495,6 @@ function SystemDetailScene({
           />
           <PlanetSphere
             planet={planet}
-            isMobile={isMobile}
             isSelected={selectedPlanetId === planet.id}
             onSelect={onSelectPlanet}
           />
@@ -577,13 +533,11 @@ function GalaxyScene({
   planets,
   selectedSystem,
   onSelectSystem,
-  isMobile,
 }: {
   starSystems: StarSystem[];
   planets: Planet[];
   selectedSystem: StarSystem | null;
   onSelectSystem: (system: StarSystem | null) => void;
-  isMobile: boolean;
 }) {
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
@@ -683,13 +637,11 @@ function GalaxyScene({
     return planets.filter((p) => p.starSystemId === selectedSystem.id);
   }, [selectedSystem, planets]);
 
-  // Tap on empty space (mobile) deselects any selected star/planet
+  // Click on empty space deselects any selected star/planet
   const handleBackgroundClick = useCallback(() => {
-    if (isMobile) {
-      setSelectedStarId("");
-      setSelectedPlanetId("");
-    }
-  }, [isMobile]);
+    setSelectedStarId("");
+    setSelectedPlanetId("");
+  }, []);
 
   return (
     <>
@@ -707,13 +659,11 @@ function GalaxyScene({
         target={targetLook}
       />
 
-      {/* Invisible background sphere to catch taps on empty space (mobile) */}
-      {isMobile && (
-        <mesh onClick={handleBackgroundClick}>
-          <sphereGeometry args={[200, 8, 8]} />
-          <meshBasicMaterial visible={false} side={THREE.BackSide} />
-        </mesh>
-      )}
+      {/* Invisible background sphere to deselect on empty-space click */}
+      <mesh onClick={handleBackgroundClick}>
+        <sphereGeometry args={[200, 8, 8]} />
+        <meshBasicMaterial visible={false} side={THREE.BackSide} />
+      </mesh>
 
       {/* Background stars */}
       <Stars radius={120} depth={80} count={3000} factor={3} saturation={0.1} fade speed={0.5} />
@@ -740,7 +690,6 @@ function GalaxyScene({
             system={sys}
             planets={planets.filter((p) => p.starSystemId === sys.id)}
             onClick={onSelectSystem}
-            isMobile={isMobile}
             isSelected={selectedStarId === sys.id}
             onSelect={setSelectedStarId}
           />
@@ -758,7 +707,6 @@ function GalaxyScene({
           <SystemDetailScene
             system={selectedSystem}
             planets={systemPlanets}
-            isMobile={isMobile}
             selectedPlanetId={selectedPlanetId}
             onSelectPlanet={setSelectedPlanetId}
           />
@@ -776,7 +724,6 @@ export default function GalaxyMap() {
   const [starSystems, setStarSystems] = useState<StarSystem[] | null>(null);
   const [planets, setPlanets] = useState<Planet[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const isMobile = useIsMobile();
 
   // Fetch star systems and planets directly from Firestore
   useEffect(() => {
@@ -898,7 +845,6 @@ export default function GalaxyMap() {
             planets={planets}
             selectedSystem={selectedSystem}
             onSelectSystem={handleSelectSystem}
-            isMobile={isMobile}
           />
         ) : (
           <>
