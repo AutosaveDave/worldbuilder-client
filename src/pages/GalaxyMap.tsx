@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, Html, Stars, Line } from "@react-three/drei";
+import { OrbitControls, Stars, Line } from "@react-three/drei";
 import * as THREE from "three";
 import {
   Box,
@@ -11,10 +11,13 @@ import {
   Chip,
   Stack,
   CircularProgress,
+  Button,
+  Divider,
   alpha,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import PublicIcon from "@mui/icons-material/Public";
+import ExploreIcon from "@mui/icons-material/Explore";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../api/firebase";
 
@@ -117,17 +120,29 @@ function starDisplayRadius(spectralClass: string, stellarRadius: number): number
   return base * scale * Math.max(0.6, Math.min(stellarRadius, 2));
 }
 
+// ─── Selection ring component ───────────────────────────────────
+function SelectionRing({ radius, color }: { radius: number; color: string }) {
+  const ringRef = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (ringRef.current) {
+      ringRef.current.rotation.z = clock.elapsedTime * 0.5;
+    }
+  });
+  return (
+    <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[radius * 1.6, radius * 2.0, 48]} />
+      <meshBasicMaterial color={color} transparent opacity={0.45} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
 // ─── Galaxy-level Star Marker ───────────────────────────────────
 function StarMarker({
   system,
-  planets,
-  onClick,
   isSelected,
   onSelect,
 }: {
   system: StarSystem;
-  planets: Planet[];
-  onClick: (system: StarSystem) => void;
   isSelected: boolean;
   onSelect: (systemId: string) => void;
 }) {
@@ -139,11 +154,9 @@ function StarMarker({
   const pos = cylToCartesian(system.position.azimuth, system.position.distance, system.position.elevation);
   const displayRadius = starDisplayRadius(primaryStar.spectralClass, primaryStar.radius);
 
-  const showLabel = isSelected;
-
   useFrame(() => {
     if (glowRef.current) {
-      const s = showLabel ? 3.5 : 2.2;
+      const s = isSelected ? 3.5 : 2.2;
       glowRef.current.scale.setScalar(s);
     }
   });
@@ -159,12 +172,9 @@ function StarMarker({
 
   const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    if (isSelected) return; // already selected — use the "View System" button
+    if (isSelected) return;
     onSelect(system.id);
   }, [system, isSelected, onSelect]);
-
-  const systemPlanets = planets.filter((p) => p.type !== "moon" && p.type !== "station");
-  const systemMoons = planets.filter((p) => p.type === "moon");
 
   return (
     <group position={pos}>
@@ -196,77 +206,10 @@ function StarMarker({
       </mesh>
 
       {/* Point light for glow  */}
-      <pointLight color={color} intensity={showLabel ? 2 : 0.6} distance={3} decay={2} />
+      <pointLight color={color} intensity={isSelected ? 2 : 0.6} distance={3} decay={2} />
 
-      {/* Label (hover on desktop, tap on mobile) */}
-      {showLabel && (
-        <Html transform={false} style={{ pointerEvents: "auto" }}>
-          <Paper
-            elevation={8}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            sx={{
-              p: 1.5,
-              minWidth: 200,
-              maxWidth: 280,
-              bgcolor: alpha("#0a0f1e", 0.92),
-              border: `1px solid ${alpha(color, 0.5)}`,
-              backdropFilter: "blur(8px)",
-              transform: "translate(12px, -50%)",
-            }}
-          >
-            <Typography variant="subtitle2" sx={{ color, fontWeight: 700 }}>
-              {system.name}
-            </Typography>
-            <Typography variant="caption" sx={{ color: "#aaa" }} display="block">
-              {system.systemType === "binary" ? "Binary" : "Single"} system &middot;{" "}
-              {primaryStar.spectralClass}-class &middot; {primaryStar.surfaceTemperature}K
-            </Typography>
-            {systemPlanets.length > 0 && (
-              <Box mt={0.5}>
-                <Typography variant="caption" sx={{ color: "#aaa", fontWeight: 600 }}>
-                  Planets ({systemPlanets.length}):
-                </Typography>
-                {systemPlanets.map((p) => (
-                  <Typography key={p.id} variant="caption" display="block" sx={{ pl: 1, color: "#ccc" }}>
-                    • {p.name} — {p.type}, {p.habitability}
-                  </Typography>
-                ))}
-              </Box>
-            )}
-            {systemMoons.length > 0 && (
-              <Typography variant="caption" sx={{ color: "#aaa" }} display="block" mt={0.3}>
-                + {systemMoons.length} moon{systemMoons.length > 1 ? "s" : ""}
-              </Typography>
-            )}
-            <Stack direction="row" spacing={0.5} mt={0.5} flexWrap="wrap" useFlexGap>
-              <Chip label={system.status} size="small" sx={{ height: 18, fontSize: 10, color: "#ccc", borderColor: "#555" }} variant="outlined" />
-            </Stack>
-            <Box
-              onClick={(e) => { e.stopPropagation(); onClick(system); }}
-              sx={{
-                mt: 1,
-                py: 0.6,
-                px: 1.5,
-                borderRadius: 1,
-                bgcolor: alpha(color, 0.2),
-                border: `1px solid ${alpha(color, 0.4)}`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 0.5,
-                cursor: "pointer",
-                "&:hover": { bgcolor: alpha(color, 0.3) },
-                "&:active": { bgcolor: alpha(color, 0.35) },
-              }}
-            >
-              <Typography variant="caption" sx={{ color, fontWeight: 700 }}>
-                View System
-              </Typography>
-              <OpenInNewIcon sx={{ color, fontSize: 14 }} />
-            </Box>
-          </Paper>
-        </Html>
-      )}
+      {/* Selection ring highlight */}
+      {isSelected && <SelectionRing radius={displayRadius} color={color} />}
     </group>
   );
 }
@@ -330,8 +273,6 @@ function PlanetSphere({
 
   const displayRadius = Math.max(0.25, Math.sqrt(r.radius) * 0.45);
 
-  const showInfo = isSelected;
-
   const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     document.body.style.cursor = "pointer";
@@ -376,54 +317,8 @@ function PlanetSphere({
         </mesh>
       )}
 
-      {/* Label (hover on desktop, tap on mobile) */}
-      {showInfo && (
-        <Html transform={false} style={{ pointerEvents: "none" }}>
-          <Paper
-            elevation={8}
-            sx={{
-              p: 1.5,
-              minWidth: 180,
-              maxWidth: 260,
-              bgcolor: alpha("#0a0f1e", 0.92),
-              border: `1px solid ${alpha(r.primaryColor, 0.5)}`,
-              backdropFilter: "blur(8px)",
-              transform: "translate(12px, -50%)",
-            }}
-          >
-            <Typography variant="subtitle2" sx={{ color: r.primaryColor, fontWeight: 700 }}>
-              {planet.name}
-            </Typography>
-            <Typography variant="caption" sx={{ color: "#aaa" }} display="block">
-              {planet.type} &middot; {planet.climate}
-            </Typography>
-            <Typography variant="caption" sx={{ color: "#aaa" }} display="block">
-              Habitability: {planet.habitability}
-            </Typography>
-            <Typography variant="caption" sx={{ color: "#aaa" }} display="block">
-              Atmosphere: {planet.atmosphere}
-            </Typography>
-            <Typography variant="caption" sx={{ color: "#aaa" }} display="block">
-              Gravity: {planet.gravity}
-            </Typography>
-            {planet.pointsOfInterest?.length > 0 && (
-              <Box mt={0.5}>
-                <Typography variant="caption" sx={{ color: "#aaa", fontWeight: 600 }}>
-                  Points of Interest:
-                </Typography>
-                {planet.pointsOfInterest.map((poi) => (
-                  <Typography key={poi} variant="caption" display="block" sx={{ pl: 1, color: "#ccc" }}>
-                    • {poi}
-                  </Typography>
-                ))}
-              </Box>
-            )}
-            <Typography variant="caption" sx={{ color: "#aaa" }} display="block" mt={0.3}>
-              Orbit: {orbit.semiMajorAxis} AU &middot; Period: {orbit.orbitalPeriod} yr
-            </Typography>
-          </Paper>
-        </Html>
-      )}
+      {/* Selection ring highlight */}
+      {isSelected && <SelectionRing radius={displayRadius} color={r.primaryColor} />}
     </group>
   );
 }
@@ -532,25 +427,23 @@ function GalaxyScene({
   starSystems,
   planets,
   selectedSystem,
-  onSelectSystem,
+  onSelectSystem: _onSelectSystem,
+  selectedStarId,
+  onSelectStarId,
+  selectedPlanetId,
+  onSelectPlanetId,
 }: {
   starSystems: StarSystem[];
   planets: Planet[];
   selectedSystem: StarSystem | null;
   onSelectSystem: (system: StarSystem | null) => void;
+  selectedStarId: string;
+  onSelectStarId: (id: string) => void;
+  selectedPlanetId: string;
+  onSelectPlanetId: (id: string) => void;
 }) {
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
-
-  // Mobile tap-selection state
-  const [selectedStarId, setSelectedStarId] = useState<string>("");
-  const [selectedPlanetId, setSelectedPlanetId] = useState<string>("");
-
-  // Reset selections when navigating between galaxy/system views
-  useEffect(() => {
-    setSelectedStarId("");
-    setSelectedPlanetId("");
-  }, [selectedSystem]);
 
   // Camera targets
   const galaxyCamPos = useMemo(() => new THREE.Vector3(0, 30, 35), []);
@@ -639,9 +532,9 @@ function GalaxyScene({
 
   // Click on empty space deselects any selected star/planet
   const handleBackgroundClick = useCallback(() => {
-    setSelectedStarId("");
-    setSelectedPlanetId("");
-  }, []);
+    onSelectStarId("");
+    onSelectPlanetId("");
+  }, [onSelectStarId, onSelectPlanetId]);
 
   return (
     <>
@@ -688,10 +581,8 @@ function GalaxyScene({
           <StarMarker
             key={sys.id}
             system={sys}
-            planets={planets.filter((p) => p.starSystemId === sys.id)}
-            onClick={onSelectSystem}
             isSelected={selectedStarId === sys.id}
-            onSelect={setSelectedStarId}
+            onSelect={onSelectStarId}
           />
         ))}
 
@@ -708,7 +599,7 @@ function GalaxyScene({
             system={selectedSystem}
             planets={systemPlanets}
             selectedPlanetId={selectedPlanetId}
-            onSelectPlanet={setSelectedPlanetId}
+            onSelectPlanet={onSelectPlanetId}
           />
         </group>
       )}
@@ -724,6 +615,14 @@ export default function GalaxyMap() {
   const [starSystems, setStarSystems] = useState<StarSystem[] | null>(null);
   const [planets, setPlanets] = useState<Planet[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedStarId, setSelectedStarId] = useState("");
+  const [selectedPlanetId, setSelectedPlanetId] = useState("");
+
+  // Reset selections when navigating between galaxy / system views
+  useEffect(() => {
+    setSelectedStarId("");
+    setSelectedPlanetId("");
+  }, [selectedSystem]);
 
   // Fetch star systems and planets directly from Firestore
   useEffect(() => {
@@ -756,6 +655,8 @@ export default function GalaxyMap() {
 
   const handleSelectSystem = useCallback((system: StarSystem | null) => {
     setSelectedSystem(system);
+    setSelectedStarId("");
+    setSelectedPlanetId("");
   }, []);
 
   const handleBack = useCallback(() => {
@@ -845,6 +746,10 @@ export default function GalaxyMap() {
             planets={planets}
             selectedSystem={selectedSystem}
             onSelectSystem={handleSelectSystem}
+            selectedStarId={selectedStarId}
+            onSelectStarId={setSelectedStarId}
+            selectedPlanetId={selectedPlanetId}
+            onSelectPlanetId={setSelectedPlanetId}
           />
         ) : (
           <>
@@ -853,6 +758,171 @@ export default function GalaxyMap() {
           </>
         )}
       </Canvas>
+
+      {/* ── HUD Info Panel ─────────────────────────────────────── */}
+      {(() => {
+        // Galaxy view: show selected star system info
+        if (!selectedSystem && selectedStarId && starSystems) {
+          const sys = starSystems.find((s) => s.id === selectedStarId);
+          if (!sys) return null;
+          const star = sys.stars[0];
+          const sysPlanets = planets?.filter((p) => p.starSystemId === sys.id) ?? [];
+          return (
+            <Paper
+              sx={{
+                position: "absolute",
+                bottom: 24,
+                right: 24,
+                zIndex: 10,
+                width: 320,
+                maxHeight: "50vh",
+                overflow: "auto",
+                bgcolor: alpha("#0a0f1e", 0.92),
+                backdropFilter: "blur(12px)",
+                border: `1px solid ${alpha("#fff", 0.12)}`,
+                p: 2,
+              }}
+            >
+              <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700, mb: 0.5 }}>
+                {sys.name}
+              </Typography>
+              <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: "wrap" }}>
+                <Chip
+                  label={sys.systemType === "binary" ? "Binary" : "Single"}
+                  size="small"
+                  sx={{ bgcolor: alpha("#7c4dff", 0.25), color: "#c9b0ff", fontSize: "0.7rem" }}
+                />
+                <Chip
+                  label={`${star.spectralClass}-class`}
+                  size="small"
+                  sx={{ bgcolor: alpha(spectralColor(star.spectralClass), 0.25), color: spectralColor(star.spectralClass), fontSize: "0.7rem" }}
+                />
+                {sys.status && (
+                  <Chip
+                    label={sys.status}
+                    size="small"
+                    sx={{ bgcolor: alpha("#fff", 0.08), color: "#aaa", fontSize: "0.7rem" }}
+                  />
+                )}
+              </Stack>
+              {sys.description && (
+                <Typography variant="body2" sx={{ color: alpha("#fff", 0.65), mb: 1, fontSize: "0.78rem" }}>
+                  {sys.description}
+                </Typography>
+              )}
+              <Divider sx={{ borderColor: alpha("#fff", 0.08), mb: 1 }} />
+              <Typography variant="caption" sx={{ color: alpha("#fff", 0.5), display: "block", mb: 0.5 }}>
+                Temperature: {star.surfaceTemperature?.toLocaleString()}K &middot; Habitable zone: {sys.habitableZone}
+              </Typography>
+              {sysPlanets.length > 0 && (
+                <Typography variant="caption" sx={{ color: alpha("#fff", 0.5), display: "block", mb: 1 }}>
+                  {sysPlanets.length} planet{sysPlanets.length !== 1 ? "s" : ""}: {sysPlanets.map((p) => p.name).join(", ")}
+                </Typography>
+              )}
+              <Button
+                variant="contained"
+                size="small"
+                fullWidth
+                startIcon={<ExploreIcon />}
+                onClick={() => handleSelectSystem(sys)}
+                sx={{
+                  mt: 0.5,
+                  bgcolor: "#7c4dff",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  "&:hover": { bgcolor: "#9e73ff" },
+                }}
+              >
+                View System
+              </Button>
+            </Paper>
+          );
+        }
+
+        // System view: show selected planet info
+        if (selectedSystem && selectedPlanetId && planets) {
+          const planet = planets.find((p) => p.id === selectedPlanetId);
+          if (!planet) return null;
+          return (
+            <Paper
+              sx={{
+                position: "absolute",
+                bottom: 24,
+                right: 24,
+                zIndex: 10,
+                width: 320,
+                maxHeight: "50vh",
+                overflow: "auto",
+                bgcolor: alpha("#0a0f1e", 0.92),
+                backdropFilter: "blur(12px)",
+                border: `1px solid ${alpha("#fff", 0.12)}`,
+                p: 2,
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                <PublicIcon sx={{ color: planet.render.primaryColor, fontSize: 20 }} />
+                <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700 }}>
+                  {planet.name}
+                </Typography>
+              </Stack>
+              <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: "wrap" }}>
+                <Chip
+                  label={planet.type}
+                  size="small"
+                  sx={{ bgcolor: alpha(planet.render.primaryColor, 0.25), color: planet.render.primaryColor, fontSize: "0.7rem" }}
+                />
+                <Chip
+                  label={planet.habitability}
+                  size="small"
+                  sx={{
+                    bgcolor: alpha(planet.habitability === "habitable" ? "#4caf50" : "#ff9800", 0.2),
+                    color: planet.habitability === "habitable" ? "#81c784" : "#ffb74d",
+                    fontSize: "0.7rem",
+                  }}
+                />
+              </Stack>
+              {planet.description && (
+                <Typography variant="body2" sx={{ color: alpha("#fff", 0.65), mb: 1, fontSize: "0.78rem" }}>
+                  {planet.description}
+                </Typography>
+              )}
+              <Divider sx={{ borderColor: alpha("#fff", 0.08), mb: 1 }} />
+              <Stack spacing={0.3} sx={{ mb: 1 }}>
+                <Typography variant="caption" sx={{ color: alpha("#fff", 0.5) }}>
+                  Climate: {planet.climate} &middot; Atmosphere: {planet.atmosphere}
+                </Typography>
+                <Typography variant="caption" sx={{ color: alpha("#fff", 0.5) }}>
+                  Gravity: {planet.gravity} &middot; Orbit period: {planet.orbit.orbitalPeriod} days
+                </Typography>
+                {planet.moons.length > 0 && (
+                  <Typography variant="caption" sx={{ color: alpha("#fff", 0.5) }}>
+                    Moons: {planet.moons.join(", ")}
+                  </Typography>
+                )}
+              </Stack>
+              {planet.pointsOfInterest.length > 0 && (
+                <>
+                  <Typography variant="caption" sx={{ color: alpha("#fff", 0.4), fontWeight: 600, display: "block", mb: 0.3 }}>
+                    Points of Interest
+                  </Typography>
+                  <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                    {planet.pointsOfInterest.map((poi) => (
+                      <Chip
+                        key={poi}
+                        label={poi}
+                        size="small"
+                        sx={{ bgcolor: alpha("#fff", 0.06), color: "#aaa", fontSize: "0.68rem" }}
+                      />
+                    ))}
+                  </Stack>
+                </>
+              )}
+            </Paper>
+          );
+        }
+
+        return null;
+      })()}
     </Box>
   );
 }
