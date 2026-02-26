@@ -592,12 +592,25 @@ function GalaxyScene({
   const galaxyCamPos = useMemo(() => new THREE.Vector3(0, 30, 35), []);
   const galaxyLookAt = useMemo(() => new THREE.Vector3(0, 0, 0), []);
 
-  // Compute the max visual orbit radius so the camera can frame all planets
+  // Compute the max visual extent so the camera can frame all planets AND stars
   const maxOrbitExtent = useMemo(() => {
     if (!selectedSystem) return 0;
+    const extents: number[] = [];
+
+    // Planet orbit extents
     const sysPlanets = planets.filter((p) => p.starSystemId === selectedSystem.id);
-    if (sysPlanets.length === 0) return 5; // fallback for no planets
-    return Math.max(...sysPlanets.map((p) => Math.sqrt(p.orbit.semiMajorAxis) * 9));
+    for (const p of sysPlanets) {
+      extents.push(Math.sqrt(p.orbit.semiMajorAxis) * 9);
+    }
+
+    // Secondary star extent (uses same formula as SystemDetailScene)
+    if (selectedSystem.stars.length > 1 && selectedSystem.stars[1]) {
+      const s2 = selectedSystem.stars[1];
+      const orbitR = (s2.orbitRadius ?? 0.2) * 20;
+      extents.push(orbitR);
+    }
+
+    return extents.length > 0 ? Math.max(...extents) : 5;
   }, [selectedSystem, planets]);
 
   const systemCamPos = useMemo(() => {
