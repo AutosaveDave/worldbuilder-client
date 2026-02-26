@@ -215,6 +215,16 @@ function StarMarker({
         <meshBasicMaterial color={color} />
       </mesh>
 
+      {/* Enlarged invisible hit-area for easier clicking/tapping */}
+      <mesh
+        onClick={handleClick}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+      >
+        <sphereGeometry args={[Math.max(displayRadius * 5, 0.7), 16, 16]} />
+        <meshBasicMaterial visible={false} />
+      </mesh>
+
       {/* Point light for glow  */}
       <pointLight color={color} intensity={showLabel ? 2 : 0.6} distance={3} decay={2} />
 
