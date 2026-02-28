@@ -78,6 +78,7 @@ interface Planet {
   atmosphere: string;
   gravity: string;
   starSystemId: string;
+  parentPlanetId?: string;
   orbit: PlanetOrbit;
   render: PlanetRender;
   habitability: string;
@@ -394,15 +395,20 @@ function PlanetSphere({
   onSelect,
   orbitScale = 1,
   timeSpeed = 1,
+  ...props
 }: {
   planet: Planet;
   isSelected: boolean;
   onSelect: (planetId: string) => void;
   orbitScale?: number;
   timeSpeed?: number;
+  childMoons?: Planet[];
+  selectedMoonId?: string;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const childMoons = props.childMoons ?? [];
+  const selectedMoonId = props.selectedMoonId ?? "";
 
   const { orbit, render: r } = planet;
   const a = Math.sqrt(orbit.semiMajorAxis) * 9 * orbitScale;
@@ -482,6 +488,115 @@ function PlanetSphere({
 
       {/* Selection ring highlight */}
       {isSelected && <SelectionRing radius={displayRadius} color={r.primaryColor} />}
+
+      {/* Child moons */}
+      {childMoons.map((moon) => (
+        <MoonSphere
+          key={moon.id}
+          moon={moon}
+          parentRadius={displayRadius}
+          isSelected={selectedMoonId === moon.id}
+          onSelect={onSelect}
+          timeSpeed={timeSpeed}
+        />
+      ))}
+    </group>
+  );
+}
+
+// ─── Moon Sphere (orbits parent planet) ─────────────────────────
+function MoonSphere({
+  moon,
+  parentRadius,
+  isSelected,
+  onSelect,
+  timeSpeed = 1,
+}: {
+  moon: Planet;
+  parentRadius: number;
+  isSelected: boolean;
+  onSelect: (planetId: string) => void;
+  timeSpeed?: number;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const { orbit, render: r } = moon;
+
+  // Moon orbits are much smaller — scale relative to parent planet size
+  const moonOrbitScale = parentRadius * 2.5;
+  const a = Math.max(parentRadius * 1.8, Math.sqrt(orbit.semiMajorAxis) * 1.2 + moonOrbitScale);
+  const b = a * Math.sqrt(1 - orbit.eccentricity * orbit.eccentricity);
+  const inc = orbit.inclination * DEG2RAD;
+
+  // Moons orbit faster than planets
+  const angularSpeed = orbit.orbitalPeriod > 0 ? (2 * Math.PI) / (orbit.orbitalPeriod * 3) : 0.02;
+  const phaseRef = useRef(orbit.currentAngle * DEG2RAD);
+
+  useFrame((_, rawDelta) => {
+    const delta = Math.min(rawDelta, 0.1);
+    phaseRef.current += delta * angularSpeed * timeSpeed;
+    const angle = phaseRef.current;
+    const xp = a * Math.cos(angle);
+    const zp = b * Math.sin(angle);
+    const yp = zp * Math.sin(inc);
+    const zr = zp * Math.cos(inc);
+    if (groupRef.current) {
+      groupRef.current.position.set(xp, yp, zr);
+    }
+  });
+
+  const initAngle = orbit.currentAngle * DEG2RAD;
+  const ix = a * Math.cos(initAngle);
+  const iz = b * Math.sin(initAngle);
+  const iy = iz * Math.sin(inc);
+  const izr = iz * Math.cos(inc);
+
+  // Moons are smaller than planets
+  const displayRadius = Math.max(0.12, Math.sqrt(r.radius) * 0.25);
+
+  const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    document.body.style.cursor = "pointer";
+  }, []);
+
+  const handlePointerOut = useCallback(() => {
+    document.body.style.cursor = "auto";
+  }, []);
+
+  const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    onSelect(isSelected ? "" : moon.id);
+  }, [isSelected, onSelect, moon.id]);
+
+  return (
+    <group ref={groupRef} position={[ix, iy, izr]}>
+      <mesh
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+        onClick={handleClick}
+      >
+        <sphereGeometry args={[displayRadius, 24, 24]} />
+        <meshStandardMaterial
+          color={r.primaryColor}
+          roughness={0.6}
+          metalness={0.05}
+        />
+      </mesh>
+
+      {/* Atmosphere glow */}
+      {r.atmosphereIntensity > 0.05 && (
+        <mesh>
+          <sphereGeometry args={[displayRadius * 1.12, 24, 24]} />
+          <meshBasicMaterial
+            color={r.atmosphereColor}
+            transparent
+            opacity={r.atmosphereIntensity * 0.3}
+            side={THREE.BackSide}
+          />
+        </mesh>
+      )}
+
+      {/* Selection ring */}
+      {isSelected && <SelectionRing radius={displayRadius} color={r.primaryColor} />}
     </group>
   );
 }
@@ -502,10 +617,29 @@ function SystemDetailScene({
 }) {
   const starLayout = useMemo(() => computeStarLayout(system.stars), [system.stars]);
 
+  // Separate root planets from moons
+  const rootPlanets = useMemo(
+    () => planets.filter((p) => !p.parentPlanetId),
+    [planets],
+  );
+
+  // Build a map of parentPlanetId → child moons
+  const moonsByParent = useMemo(() => {
+    const map = new Map<string, Planet[]>();
+    for (const p of planets) {
+      if (p.parentPlanetId) {
+        const list = map.get(p.parentPlanetId) ?? [];
+        list.push(p);
+        map.set(p.parentPlanetId, list);
+      }
+    }
+    return map;
+  }, [planets]);
+
   // Scale planet orbits outward if any perihelion falls inside the star exclusion zone
   const orbitScale = useMemo(
-    () => computeOrbitScale(starLayout.maxExtent, planets),
-    [planets, starLayout.maxExtent],
+    () => computeOrbitScale(starLayout.maxExtent, rootPlanets),
+    [rootPlanets, starLayout.maxExtent],
   );
 
   return (
@@ -513,8 +647,8 @@ function SystemDetailScene({
       {/* All stars — single stars sit at center, multi-star systems orbit the COM */}
       <MultiStarSystem stars={system.stars} timeSpeed={timeSpeed} />
 
-      {/* Planet orbits and planets */}
-      {planets.map((planet) => (
+      {/* Planet orbits and planets (root only — moons rendered as children) */}
+      {rootPlanets.map((planet) => (
         <group key={planet.id}>
           <OrbitEllipse
             semiMajorAxis={planet.orbit.semiMajorAxis}
@@ -530,6 +664,8 @@ function SystemDetailScene({
             onSelect={onSelectPlanet}
             orbitScale={orbitScale}
             timeSpeed={timeSpeed}
+            childMoons={moonsByParent.get(planet.id) ?? []}
+            selectedMoonId={selectedPlanetId}
           />
         </group>
       ))}
