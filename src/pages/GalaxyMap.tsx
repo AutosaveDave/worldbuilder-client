@@ -617,24 +617,30 @@ function SystemDetailScene({
 }) {
   const starLayout = useMemo(() => computeStarLayout(system.stars), [system.stars]);
 
-  // Separate root planets from moons
-  const rootPlanets = useMemo(
-    () => planets.filter((p) => !p.parentPlanetId),
+  // Build a set of all planet IDs in this system for validation
+  const planetIdSet = useMemo(
+    () => new Set(planets.map((p) => p.id)),
     [planets],
   );
 
-  // Build a map of parentPlanetId → child moons
+  // A planet is a moon only if its parentPlanetId points to another planet in the same system
+  const rootPlanets = useMemo(
+    () => planets.filter((p) => !p.parentPlanetId || !planetIdSet.has(p.parentPlanetId)),
+    [planets, planetIdSet],
+  );
+
+  // Build a map of parentPlanetId → child moons (only valid references)
   const moonsByParent = useMemo(() => {
     const map = new Map<string, Planet[]>();
     for (const p of planets) {
-      if (p.parentPlanetId) {
+      if (p.parentPlanetId && planetIdSet.has(p.parentPlanetId)) {
         const list = map.get(p.parentPlanetId) ?? [];
         list.push(p);
         map.set(p.parentPlanetId, list);
       }
     }
     return map;
-  }, [planets]);
+  }, [planets, planetIdSet]);
 
   // Scale planet orbits outward if any perihelion falls inside the star exclusion zone
   const orbitScale = useMemo(
