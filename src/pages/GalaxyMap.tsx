@@ -542,10 +542,12 @@ function CameraAnimator({
   targetPosition,
   targetLookAt,
   active,
+  onComplete,
 }: {
   targetPosition: THREE.Vector3;
   targetLookAt: THREE.Vector3;
   active: boolean;
+  onComplete?: () => void;
 }) {
   const { camera } = useThree();
   const lookAtRef = useRef(new THREE.Vector3(0, 0, 0));
@@ -555,6 +557,17 @@ function CameraAnimator({
     camera.position.lerp(targetPosition, 0.04);
     lookAtRef.current.lerp(targetLookAt, 0.04);
     camera.lookAt(lookAtRef.current);
+
+    // Snap to exact target and finish when close enough (avoids abrupt cutoff)
+    if (
+      camera.position.distanceTo(targetPosition) < 0.1 &&
+      lookAtRef.current.distanceTo(targetLookAt) < 0.1
+    ) {
+      camera.position.copy(targetPosition);
+      lookAtRef.current.copy(targetLookAt);
+      camera.lookAt(lookAtRef.current);
+      onComplete?.();
+    }
   });
 
   return null;
@@ -649,10 +662,12 @@ function GalaxyScene({
     if (currentId !== prevSelected.current) {
       prevSelected.current = currentId;
       setAnimating(true);
-      const timer = setTimeout(() => setAnimating(false), 1500);
-      return () => clearTimeout(timer);
     }
   }, [selectedSystem]);
+
+  const handleAnimationComplete = useCallback(() => {
+    setAnimating(false);
+  }, []);
 
   // Set initial camera position
   useEffect(() => {
@@ -674,9 +689,11 @@ function GalaxyScene({
         targetPosition={targetPos}
         targetLookAt={targetLook}
         active={animating}
+        onComplete={handleAnimationComplete}
       />
       <OrbitControls
         ref={controlsRef}
+        enabled={!animating}
         enableDamping
         dampingFactor={0.1}
         minDistance={2}
