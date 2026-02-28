@@ -737,7 +737,7 @@ export default function GalaxyMap() {
   const [loading, setLoading] = useState(true);
   const [selectedStarId, setSelectedStarId] = useState("");
   const [selectedPlanetId, setSelectedPlanetId] = useState("");
-  const [timeSpeed, setTimeSpeed] = useState(4);
+  const [timeSpeed, setTimeSpeed] = useState(0.25);
 
   // Reset selections when navigating between galaxy / system views
   useEffect(() => {
@@ -907,8 +907,8 @@ export default function GalaxyMap() {
             value={timeSpeed}
             onChange={(_, v) => setTimeSpeed(v as number)}
             min={0}
-            max={10}
-            step={0.5}
+            max={2}
+            step={0.05}
             size="small"
             sx={{
               color: "#7c4dff",
