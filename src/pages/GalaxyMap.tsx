@@ -220,8 +220,9 @@ function MultiStarSystem({ stars, timeSpeed }: { stars: StarData[]; timeSpeed: n
   const N = stars.length;
   const phaseRef = useRef(0);
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
     if (N < 2) return;
+    const delta = Math.min(rawDelta, 0.1);
     phaseRef.current += delta * 0.15 * timeSpeed;
     const t = phaseRef.current;
     if (N === 2) {
@@ -406,11 +407,12 @@ function PlanetSphere({
   const inc = orbit.inclination * DEG2RAD;
 
   // Angular velocity: full revolution over orbitalPeriod "days"
-  // Map period → speed so that period=100 ≈ one revolution per ~10 s at 1× speed
-  const angularSpeed = orbit.orbitalPeriod > 0 ? (2 * Math.PI) / (orbit.orbitalPeriod * 0.1) : 0.05;
+  // Map period → speed so that period=100 ≈ one revolution per ~1000 s at 1× speed
+  const angularSpeed = orbit.orbitalPeriod > 0 ? (2 * Math.PI) / (orbit.orbitalPeriod * 10) : 0.0005;
   const phaseRef = useRef(orbit.currentAngle * DEG2RAD);
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
+    const delta = Math.min(rawDelta, 0.1);
     phaseRef.current += delta * angularSpeed * timeSpeed;
     const angle = phaseRef.current;
     const xp = a * Math.cos(angle);
@@ -735,7 +737,7 @@ export default function GalaxyMap() {
   const [loading, setLoading] = useState(true);
   const [selectedStarId, setSelectedStarId] = useState("");
   const [selectedPlanetId, setSelectedPlanetId] = useState("");
-  const [timeSpeed, setTimeSpeed] = useState(1);
+  const [timeSpeed, setTimeSpeed] = useState(0.01);
 
   // Reset selections when navigating between galaxy / system views
   useEffect(() => {
@@ -898,15 +900,15 @@ export default function GalaxyMap() {
           <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
             <SpeedIcon sx={{ color: alpha("#fff", 0.6), fontSize: 18 }} />
             <Typography variant="caption" sx={{ color: alpha("#fff", 0.7), fontWeight: 600 }}>
-              Time Speed: {timeSpeed === 0 ? "Paused" : `${timeSpeed.toFixed(1)}×`}
+              Time Speed: {timeSpeed === 0 ? "Paused" : `${timeSpeed.toFixed(3)}×`}
             </Typography>
           </Stack>
           <Slider
             value={timeSpeed}
             onChange={(_, v) => setTimeSpeed(v as number)}
             min={0}
-            max={10}
-            step={0.1}
+            max={0.1}
+            step={0.001}
             size="small"
             sx={{
               color: "#7c4dff",
