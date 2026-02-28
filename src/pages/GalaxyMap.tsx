@@ -121,6 +121,80 @@ function starDisplayRadius(spectralClass: string, stellarRadius: number): number
   return base * scale * Math.max(0.6, Math.min(stellarRadius, 2));
 }
 
+/**
+ * Compute multi-star orbit layout so that the cumulative center of mass
+ * sits at the origin.  Each star orbits at radius r_i = k / m_i where
+ * k is chosen large enough that no two stars collide.
+ */
+function computeStarLayout(stars: StarData[]) {
+  const N = stars.length;
+
+  const infos = stars.map((s, i) => ({
+    displayR: i === 0
+      ? Math.max(0.6, Math.sqrt(s.radius) * 0.8)
+      : Math.max(0.4, Math.sqrt(s.radius) * 0.6),
+    color: spectralColor(s.spectralClass),
+    mass: s.mass || 1,
+  }));
+
+  if (N <= 1) {
+    return { infos, orbitRadii: [0], maxExtent: infos[0]?.displayR ?? 0.6 };
+  }
+
+  const totalMass = infos.reduce((sum, s) => sum + s.mass, 0);
+  const safetyFactor = 2.5;
+  const angleStep = (2 * Math.PI) / N;
+
+  // Minimum k so no adjacent pair collides
+  let minK = 0;
+  for (let i = 0; i < N; i++) {
+    const j = (i + 1) % N;
+    const requiredDist = (infos[i].displayR + infos[j].displayR) * safetyFactor;
+    const mi = infos[i].mass;
+    const mj = infos[j].mass;
+    const cosA = Math.cos(angleStep);
+    const distCoeff = Math.sqrt(
+      1 / (mi * mi) + 1 / (mj * mj) - (2 * cosA) / (mi * mj)
+    );
+    if (distCoeff > 0) {
+      minK = Math.max(minK, requiredDist / distCoeff);
+    }
+  }
+
+  // Honour data-defined orbit separations
+  const maxDataOrbit = Math.max(0, ...stars.map((s) => (s.orbitRadius ?? 0) * 20));
+  let dataK = 0;
+  if (maxDataOrbit > 0) {
+    if (N === 2) {
+      // separation = r0+r1 = k*(1/m0 + 1/m1) = k*totalMass/(m0*m1)
+      dataK = (maxDataOrbit * infos[0].mass * infos[1].mass) / totalMass;
+    } else {
+      dataK = (maxDataOrbit * totalMass) / N;
+    }
+  }
+
+  const k = Math.max(minK, dataK);
+  const orbitRadii = infos.map((info) => k / info.mass);
+  const maxExtent = Math.max(...orbitRadii.map((r, i) => r + infos[i].displayR));
+
+  return { infos, orbitRadii, maxExtent };
+}
+
+/** Scale factor to push planet orbits outside the multi-star exclusion zone */
+function computeOrbitScale(starMaxExtent: number, planets: Planet[]): number {
+  if (planets.length === 0) return 1;
+  const buffer = 1.5;
+  const exclusionRadius = starMaxExtent + buffer;
+  let minPerihelion = Infinity;
+  for (const p of planets) {
+    const a = Math.sqrt(p.orbit.semiMajorAxis) * 9;
+    const perihelion = a * (1 - p.orbit.eccentricity);
+    minPerihelion = Math.min(minPerihelion, perihelion);
+  }
+  if (minPerihelion >= exclusionRadius) return 1;
+  return exclusionRadius / minPerihelion;
+}
+
 // ─── Selection ring component ───────────────────────────────────
 function SelectionRing({ radius, color }: { radius: number; color: string }) {
   const ringRef = useRef<THREE.Mesh>(null);
@@ -134,6 +208,91 @@ function SelectionRing({ radius, color }: { radius: number; color: string }) {
       <ringGeometry args={[radius * 1.6, radius * 2.0, 48]} />
       <meshBasicMaterial color={color} transparent opacity={0.45} side={THREE.DoubleSide} />
     </mesh>
+  );
+}
+
+// ─── Multi-Star Orbit System ────────────────────────────────────
+function MultiStarSystem({ stars }: { stars: StarData[] }) {
+  const layout = useMemo(() => computeStarLayout(stars), [stars]);
+  const groupRefs = useRef<(THREE.Group | null)[]>([]);
+  const N = stars.length;
+
+  useFrame(({ clock }) => {
+    if (N < 2) return;
+    const t = clock.elapsedTime * 0.15;
+    if (N === 2) {
+      // Binary: stars on opposite sides of the center of mass
+      if (groupRefs.current[0]) {
+        groupRefs.current[0].position.x = layout.orbitRadii[0] * Math.cos(t);
+        groupRefs.current[0].position.z = layout.orbitRadii[0] * Math.sin(t);
+      }
+      if (groupRefs.current[1]) {
+        groupRefs.current[1].position.x = layout.orbitRadii[1] * Math.cos(t + Math.PI);
+        groupRefs.current[1].position.z = layout.orbitRadii[1] * Math.sin(t + Math.PI);
+      }
+    } else {
+      // N >= 3: equally spaced around the barycenter
+      for (let i = 0; i < N; i++) {
+        const angle = t + (2 * Math.PI * i) / N;
+        const ref = groupRefs.current[i];
+        if (ref) {
+          ref.position.x = layout.orbitRadii[i] * Math.cos(angle);
+          ref.position.z = layout.orbitRadii[i] * Math.sin(angle);
+        }
+      }
+    }
+  });
+
+  // Circular orbit trail points (deduplicate nearly-equal radii)
+  const orbitTrails = useMemo(() => {
+    if (N < 2) return [];
+    const seen = new Map<string, { radius: number; color: string }>();
+    layout.orbitRadii.forEach((r, i) => {
+      const key = r.toFixed(4);
+      if (!seen.has(key)) seen.set(key, { radius: r, color: layout.infos[i].color });
+    });
+    return [...seen.values()].map(({ radius, color }) => {
+      const pts: [number, number, number][] = [];
+      const segments = 96;
+      for (let j = 0; j <= segments; j++) {
+        const theta = (j / segments) * Math.PI * 2;
+        pts.push([radius * Math.cos(theta), 0, radius * Math.sin(theta)]);
+      }
+      return { pts, color };
+    });
+  }, [N, layout]);
+
+  return (
+    <>
+      {layout.infos.map((star, i) => (
+        <group key={i} ref={(el) => { groupRefs.current[i] = el; }}>
+          {/* Star body */}
+          <mesh>
+            <sphereGeometry args={[star.displayR, 32, 32]} />
+            <meshBasicMaterial color={star.color} />
+          </mesh>
+          {/* Light */}
+          <pointLight color={star.color} intensity={i === 0 ? 8 : 5} distance={120} decay={1.2} />
+          {/* Glow */}
+          <mesh>
+            <sphereGeometry args={[star.displayR * 1.5, 32, 32]} />
+            <meshBasicMaterial color={star.color} transparent opacity={0.10} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Star orbit trails */}
+      {orbitTrails.map((trail, i) => (
+        <Line
+          key={`star-orbit-${i}`}
+          points={trail.pts}
+          color={trail.color}
+          lineWidth={1}
+          transparent
+          opacity={0.12}
+        />
+      ))}
+    </>
   );
 }
 
@@ -222,16 +381,18 @@ function OrbitEllipse({
   inclination,
   color = "#ffffff",
   opacity = 0.18,
+  orbitScale = 1,
 }: {
   semiMajorAxis: number;
   eccentricity: number;
   inclination: number;
   color?: string;
   opacity?: number;
+  orbitScale?: number;
 }) {
   const points = useMemo(() => {
     const pts: [number, number, number][] = [];
-    const a = Math.sqrt(semiMajorAxis) * 9; // sqrt compression for orbit spacing
+    const a = Math.sqrt(semiMajorAxis) * 9 * orbitScale;
     const b = a * Math.sqrt(1 - eccentricity * eccentricity);
     const inc = inclination * DEG2RAD;
     const segments = 96;
@@ -244,7 +405,7 @@ function OrbitEllipse({
       pts.push([x, y, zr]);
     }
     return pts;
-  }, [semiMajorAxis, eccentricity, inclination]);
+  }, [semiMajorAxis, eccentricity, inclination, orbitScale]);
 
   return <Line points={points} color={color} lineWidth={1} transparent opacity={opacity} />;
 }
@@ -254,15 +415,17 @@ function PlanetSphere({
   planet,
   isSelected,
   onSelect,
+  orbitScale = 1,
 }: {
   planet: Planet;
   isSelected: boolean;
   onSelect: (planetId: string) => void;
+  orbitScale?: number;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
 
   const { orbit, render: r } = planet;
-  const a = Math.sqrt(orbit.semiMajorAxis) * 9;
+  const a = Math.sqrt(orbit.semiMajorAxis) * 9 * orbitScale;
   const b = a * Math.sqrt(1 - orbit.eccentricity * orbit.eccentricity);
   const angle = orbit.currentAngle * DEG2RAD;
   const inc = orbit.inclination * DEG2RAD;
@@ -336,48 +499,18 @@ function SystemDetailScene({
   selectedPlanetId: string;
   onSelectPlanet: (planetId: string) => void;
 }) {
-  const primaryStar = system.stars[0];
-  const primaryColor = spectralColor(primaryStar.spectralClass);
-  const primaryDisplayR = Math.max(0.6, Math.sqrt(primaryStar.radius) * 0.8);
+  const starLayout = useMemo(() => computeStarLayout(system.stars), [system.stars]);
+
+  // Scale planet orbits outward if any perihelion falls inside the star exclusion zone
+  const orbitScale = useMemo(
+    () => computeOrbitScale(starLayout.maxExtent, planets),
+    [planets, starLayout.maxExtent],
+  );
 
   return (
     <group>
-      {/* Central star */}
-      <mesh>
-        <sphereGeometry args={[primaryDisplayR, 32, 32]} />
-        <meshBasicMaterial color={primaryColor} />
-      </mesh>
-      <pointLight color={primaryColor} intensity={8} distance={120} decay={1.2} />
-
-      {/* Star glow */}
-      <mesh>
-        <sphereGeometry args={[primaryDisplayR * 1.5, 32, 32]} />
-        <meshBasicMaterial color={primaryColor} transparent opacity={0.10} />
-      </mesh>
-
-      {/* Secondary star (if binary) */}
-      {system.stars.length > 1 && system.stars[1] && (() => {
-        const s2 = system.stars[1];
-        const sColor = spectralColor(s2.spectralClass);
-        const s2DisplayR = Math.max(0.4, Math.sqrt(s2.radius) * 0.6);
-        const orbitR = (s2.orbitRadius ?? 0.2) * 20;
-        const angle = (s2.orbitAngle ?? 0) * DEG2RAD;
-        const sx = orbitR * Math.cos(angle);
-        const sz = orbitR * Math.sin(angle);
-        return (
-          <group position={[sx, 0, sz]}>
-            <mesh>
-              <sphereGeometry args={[s2DisplayR, 24, 24]} />
-              <meshBasicMaterial color={sColor} />
-            </mesh>
-            <pointLight color={sColor} intensity={5} distance={80} decay={1.5} />
-            <mesh>
-              <sphereGeometry args={[s2DisplayR * 1.5, 24, 24]} />
-              <meshBasicMaterial color={sColor} transparent opacity={0.08} />
-            </mesh>
-          </group>
-        );
-      })()}
+      {/* All stars — single stars sit at center, multi-star systems orbit the COM */}
+      <MultiStarSystem stars={system.stars} />
 
       {/* Planet orbits and planets */}
       {planets.map((planet) => (
@@ -388,11 +521,13 @@ function SystemDetailScene({
             inclination={planet.orbit.inclination}
             color={planet.render.primaryColor}
             opacity={0.2}
+            orbitScale={orbitScale}
           />
           <PlanetSphere
             planet={planet}
             isSelected={selectedPlanetId === planet.id}
             onSelect={onSelectPlanet}
+            orbitScale={orbitScale}
           />
         </group>
       ))}
@@ -455,17 +590,15 @@ function GalaxyScene({
     if (!selectedSystem) return 0;
     const extents: number[] = [];
 
-    // Planet orbit extents
-    const sysPlanets = planets.filter((p) => p.starSystemId === selectedSystem.id);
-    for (const p of sysPlanets) {
-      extents.push(Math.sqrt(p.orbit.semiMajorAxis) * 9);
-    }
+    // Star layout extent (accounts for multi-star orbits)
+    const starLayout = computeStarLayout(selectedSystem.stars);
+    extents.push(starLayout.maxExtent);
 
-    // Secondary star extent (uses same formula as SystemDetailScene)
-    if (selectedSystem.stars.length > 1 && selectedSystem.stars[1]) {
-      const s2 = selectedSystem.stars[1];
-      const orbitR = (s2.orbitRadius ?? 0.2) * 20;
-      extents.push(orbitR);
+    // Planet orbit extents (with collision-avoidance scaling)
+    const sysPlanets = planets.filter((p) => p.starSystemId === selectedSystem.id);
+    const oScale = computeOrbitScale(starLayout.maxExtent, sysPlanets);
+    for (const p of sysPlanets) {
+      extents.push(Math.sqrt(p.orbit.semiMajorAxis) * 9 * oScale);
     }
 
     return extents.length > 0 ? Math.max(...extents) : 5;
