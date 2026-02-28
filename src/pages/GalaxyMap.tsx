@@ -13,8 +13,10 @@ import {
   CircularProgress,
   Button,
   Divider,
+  Slider,
   alpha,
 } from "@mui/material";
+import SpeedIcon from "@mui/icons-material/Speed";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloseIcon from "@mui/icons-material/Close";
 import PublicIcon from "@mui/icons-material/Public";
@@ -212,14 +214,16 @@ function SelectionRing({ radius, color }: { radius: number; color: string }) {
 }
 
 // ─── Multi-Star Orbit System ────────────────────────────────────
-function MultiStarSystem({ stars }: { stars: StarData[] }) {
+function MultiStarSystem({ stars, timeSpeed }: { stars: StarData[]; timeSpeed: number }) {
   const layout = useMemo(() => computeStarLayout(stars), [stars]);
   const groupRefs = useRef<(THREE.Group | null)[]>([]);
   const N = stars.length;
+  const phaseRef = useRef(0);
 
-  useFrame(({ clock }) => {
+  useFrame((_, delta) => {
     if (N < 2) return;
-    const t = clock.elapsedTime * 0.15;
+    phaseRef.current += delta * 0.15 * timeSpeed;
+    const t = phaseRef.current;
     if (N === 2) {
       // Binary: stars on opposite sides of the center of mass
       if (groupRefs.current[0]) {
@@ -243,25 +247,6 @@ function MultiStarSystem({ stars }: { stars: StarData[] }) {
     }
   });
 
-  // Circular orbit trail points (deduplicate nearly-equal radii)
-  const orbitTrails = useMemo(() => {
-    if (N < 2) return [];
-    const seen = new Map<string, { radius: number; color: string }>();
-    layout.orbitRadii.forEach((r, i) => {
-      const key = r.toFixed(4);
-      if (!seen.has(key)) seen.set(key, { radius: r, color: layout.infos[i].color });
-    });
-    return [...seen.values()].map(({ radius, color }) => {
-      const pts: [number, number, number][] = [];
-      const segments = 96;
-      for (let j = 0; j <= segments; j++) {
-        const theta = (j / segments) * Math.PI * 2;
-        pts.push([radius * Math.cos(theta), 0, radius * Math.sin(theta)]);
-      }
-      return { pts, color };
-    });
-  }, [N, layout]);
-
   return (
     <>
       {layout.infos.map((star, i) => (
@@ -279,18 +264,6 @@ function MultiStarSystem({ stars }: { stars: StarData[] }) {
             <meshBasicMaterial color={star.color} transparent opacity={0.10} />
           </mesh>
         </group>
-      ))}
-
-      {/* Star orbit trails */}
-      {orbitTrails.map((trail, i) => (
-        <Line
-          key={`star-orbit-${i}`}
-          points={trail.pts}
-          color={trail.color}
-          lineWidth={1}
-          transparent
-          opacity={0.12}
-        />
       ))}
     </>
   );
@@ -416,24 +389,45 @@ function PlanetSphere({
   isSelected,
   onSelect,
   orbitScale = 1,
+  timeSpeed = 1,
 }: {
   planet: Planet;
   isSelected: boolean;
   onSelect: (planetId: string) => void;
   orbitScale?: number;
+  timeSpeed?: number;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
 
   const { orbit, render: r } = planet;
   const a = Math.sqrt(orbit.semiMajorAxis) * 9 * orbitScale;
   const b = a * Math.sqrt(1 - orbit.eccentricity * orbit.eccentricity);
-  const angle = orbit.currentAngle * DEG2RAD;
   const inc = orbit.inclination * DEG2RAD;
 
-  const x = a * Math.cos(angle);
-  const z = b * Math.sin(angle);
-  const y = z * Math.sin(inc);
-  const zr = z * Math.cos(inc);
+  // Angular velocity: full revolution over orbitalPeriod "days"
+  // Map period → speed so that period=100 ≈ one revolution per ~10 s at 1× speed
+  const angularSpeed = orbit.orbitalPeriod > 0 ? (2 * Math.PI) / (orbit.orbitalPeriod * 0.1) : 0.05;
+  const phaseRef = useRef(orbit.currentAngle * DEG2RAD);
+
+  useFrame((_, delta) => {
+    phaseRef.current += delta * angularSpeed * timeSpeed;
+    const angle = phaseRef.current;
+    const xp = a * Math.cos(angle);
+    const zp = b * Math.sin(angle);
+    const yp = zp * Math.sin(inc);
+    const zr = zp * Math.cos(inc);
+    if (groupRef.current) {
+      groupRef.current.position.set(xp, yp, zr);
+    }
+  });
+
+  // Initial position
+  const initAngle = orbit.currentAngle * DEG2RAD;
+  const ix = a * Math.cos(initAngle);
+  const iz = b * Math.sin(initAngle);
+  const iy = iz * Math.sin(inc);
+  const izr = iz * Math.cos(inc);
 
   const displayRadius = Math.max(0.25, Math.sqrt(r.radius) * 0.45);
 
@@ -452,7 +446,7 @@ function PlanetSphere({
   }, [isSelected, onSelect, planet.id]);
 
   return (
-    <group position={[x, y, zr]}>
+    <group ref={groupRef} position={[ix, iy, izr]}>
       {/* Planet body */}
       <mesh
         ref={meshRef}
@@ -493,11 +487,13 @@ function SystemDetailScene({
   planets,
   selectedPlanetId,
   onSelectPlanet,
+  timeSpeed,
 }: {
   system: StarSystem;
   planets: Planet[];
   selectedPlanetId: string;
   onSelectPlanet: (planetId: string) => void;
+  timeSpeed: number;
 }) {
   const starLayout = useMemo(() => computeStarLayout(system.stars), [system.stars]);
 
@@ -510,7 +506,7 @@ function SystemDetailScene({
   return (
     <group>
       {/* All stars — single stars sit at center, multi-star systems orbit the COM */}
-      <MultiStarSystem stars={system.stars} />
+      <MultiStarSystem stars={system.stars} timeSpeed={timeSpeed} />
 
       {/* Planet orbits and planets */}
       {planets.map((planet) => (
@@ -528,6 +524,7 @@ function SystemDetailScene({
             isSelected={selectedPlanetId === planet.id}
             onSelect={onSelectPlanet}
             orbitScale={orbitScale}
+            timeSpeed={timeSpeed}
           />
         </group>
       ))}
@@ -568,6 +565,7 @@ function GalaxyScene({
   onSelectStarId,
   selectedPlanetId,
   onSelectPlanetId,
+  timeSpeed,
 }: {
   starSystems: StarSystem[];
   planets: Planet[];
@@ -577,6 +575,7 @@ function GalaxyScene({
   onSelectStarId: (id: string) => void;
   selectedPlanetId: string;
   onSelectPlanetId: (id: string) => void;
+  timeSpeed: number;
 }) {
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
@@ -718,6 +717,7 @@ function GalaxyScene({
             planets={systemPlanets}
             selectedPlanetId={selectedPlanetId}
             onSelectPlanet={onSelectPlanetId}
+            timeSpeed={timeSpeed}
           />
         </group>
       )}
@@ -735,6 +735,7 @@ export default function GalaxyMap() {
   const [loading, setLoading] = useState(true);
   const [selectedStarId, setSelectedStarId] = useState("");
   const [selectedPlanetId, setSelectedPlanetId] = useState("");
+  const [timeSpeed, setTimeSpeed] = useState(1);
 
   // Reset selections when navigating between galaxy / system views
   useEffect(() => {
@@ -868,6 +869,7 @@ export default function GalaxyMap() {
             onSelectStarId={setSelectedStarId}
             selectedPlanetId={selectedPlanetId}
             onSelectPlanetId={setSelectedPlanetId}
+            timeSpeed={timeSpeed}
           />
         ) : (
           <>
@@ -876,6 +878,44 @@ export default function GalaxyMap() {
           </>
         )}
       </Canvas>
+
+      {/* ── Speed Slider (system view only) ─────────────────────── */}
+      {selectedSystem && (
+        <Paper
+          sx={{
+            position: "absolute",
+            bottom: 24,
+            left: 24,
+            zIndex: 10,
+            width: 220,
+            bgcolor: alpha("#0a0f1e", 0.88),
+            backdropFilter: "blur(12px)",
+            border: `1px solid ${alpha("#fff", 0.1)}`,
+            px: 2,
+            py: 1.5,
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+            <SpeedIcon sx={{ color: alpha("#fff", 0.6), fontSize: 18 }} />
+            <Typography variant="caption" sx={{ color: alpha("#fff", 0.7), fontWeight: 600 }}>
+              Time Speed: {timeSpeed === 0 ? "Paused" : `${timeSpeed.toFixed(1)}×`}
+            </Typography>
+          </Stack>
+          <Slider
+            value={timeSpeed}
+            onChange={(_, v) => setTimeSpeed(v as number)}
+            min={0}
+            max={10}
+            step={0.1}
+            size="small"
+            sx={{
+              color: "#7c4dff",
+              '& .MuiSlider-thumb': { width: 14, height: 14 },
+              '& .MuiSlider-rail': { opacity: 0.25 },
+            }}
+          />
+        </Paper>
+      )}
 
       {/* ── HUD Info Panel ─────────────────────────────────────── */}
       {(() => {
