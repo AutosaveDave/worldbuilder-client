@@ -220,10 +220,13 @@ function MultiStarSystem({ stars, timeSpeed }: { stars: StarData[]; timeSpeed: n
   const N = stars.length;
   const phaseRef = useRef(0);
 
+  // Use same angular-speed scale as planets — treat star binary orbit as period ~30 days
+  const starAngularSpeed = (2 * Math.PI) / (30 * 10);
+
   useFrame((_, rawDelta) => {
     if (N < 2) return;
     const delta = Math.min(rawDelta, 0.1);
-    phaseRef.current += delta * 0.15 * timeSpeed;
+    phaseRef.current += delta * starAngularSpeed * timeSpeed;
     const t = phaseRef.current;
     if (N === 2) {
       // Binary: stars on opposite sides of the center of mass
