@@ -221,7 +221,7 @@ function MultiStarSystem({ stars, timeSpeed }: { stars: StarData[]; timeSpeed: n
   const phaseRef = useRef(0);
 
   // Use same angular-speed scale as planets — treat star binary orbit as period ~30 days
-  const starAngularSpeed = (2 * Math.PI) / (30 * 10);
+  const starAngularSpeed = (2 * Math.PI) / (10);
 
   useFrame((_, rawDelta) => {
     if (N < 2) return;
