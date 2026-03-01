@@ -90,7 +90,7 @@ export default function EntityDetail() {
                     Details
                   </Typography>
                   {otherEntries.map(([key, value]) => (
-                    <EntityFieldDisplay key={key} label={key} value={value} />
+                    <EntityFieldDisplay key={key} label={key} value={value} worldId={worldId} entityData={entity as Record<string, unknown>} />
                   ))}
                   {otherEntries.length === 0 && (
                     <Typography color="text.secondary">No additional details.</Typography>
