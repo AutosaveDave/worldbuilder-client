@@ -19,6 +19,7 @@ import {
 import SpeedIcon from "@mui/icons-material/Speed";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloseIcon from "@mui/icons-material/Close";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import PublicIcon from "@mui/icons-material/Public";
 import ExploreIcon from "@mui/icons-material/Explore";
 import { collection, getDocs } from "firebase/firestore";
@@ -1109,13 +1110,23 @@ export default function GalaxyMap() {
                 <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700 }}>
                   {sys.name}
                 </Typography>
-                <IconButton
-                  size="small"
-                  onClick={() => setSelectedStarId("")}
-                  sx={{ color: alpha("#fff", 0.5), "&:hover": { color: "#fff" } }}
-                >
-                  <CloseIcon fontSize="small" />
-                </IconButton>
+                <Stack direction="row" alignItems="center" spacing={0.25}>
+                  <IconButton
+                    size="small"
+                    onClick={() => window.open(`${window.location.origin}${window.location.pathname}#/worlds/${worldId}/star-systems/${sys.id}`, '_blank')}
+                    sx={{ color: alpha("#fff", 0.5), "&:hover": { color: "#fff" } }}
+                    title="Open star system details"
+                  >
+                    <OpenInNewIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={() => setSelectedStarId("")}
+                    sx={{ color: alpha("#fff", 0.5), "&:hover": { color: "#fff" } }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
               </Stack>
               <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: "wrap" }}>
                 <Chip
@@ -1195,6 +1206,14 @@ export default function GalaxyMap() {
                 <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700, flex: 1 }}>
                   {planet.name}
                 </Typography>
+                <IconButton
+                  size="small"
+                  onClick={() => window.open(`${window.location.origin}${window.location.pathname}#/worlds/${worldId}/planets/${planet.id}`, '_blank')}
+                  sx={{ color: alpha("#fff", 0.5), "&:hover": { color: "#fff" } }}
+                  title="Open planet details"
+                >
+                  <OpenInNewIcon sx={{ fontSize: 16 }} />
+                </IconButton>
                 <IconButton
                   size="small"
                   onClick={() => setSelectedPlanetId("")}
