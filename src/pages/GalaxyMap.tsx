@@ -892,9 +892,8 @@ function GalaxyScene({
 
 // ─── Main Page Component ─────────────────────────────────────────
 export default function GalaxyMap() {
-  const { worldId } = useParams<{ worldId: string }>();
+  const { worldId, starSystemId } = useParams<{ worldId: string; starSystemId?: string }>();
   const navigate = useNavigate();
-  const [selectedSystem, setSelectedSystem] = useState<StarSystem | null>(null);
   const [starSystems, setStarSystems] = useState<StarSystem[] | null>(null);
   const [planets, setPlanets] = useState<Planet[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -902,11 +901,17 @@ export default function GalaxyMap() {
   const [selectedPlanetId, setSelectedPlanetId] = useState("");
   const [timeSpeed, setTimeSpeed] = useState(0.25);
 
+  // Derive selectedSystem from URL param
+  const selectedSystem = useMemo(() => {
+    if (!starSystemId || !starSystems) return null;
+    return starSystems.find((s) => s.id === starSystemId) ?? null;
+  }, [starSystemId, starSystems]);
+
   // Reset selections when navigating between galaxy / system views
   useEffect(() => {
     setSelectedStarId("");
     setSelectedPlanetId("");
-  }, [selectedSystem]);
+  }, [starSystemId]);
 
   // Fetch star systems and planets directly from Firestore
   useEffect(() => {
@@ -938,18 +943,22 @@ export default function GalaxyMap() {
   }, [worldId]);
 
   const handleSelectSystem = useCallback((system: StarSystem | null) => {
-    setSelectedSystem(system);
     setSelectedStarId("");
     setSelectedPlanetId("");
-  }, []);
+    if (system) {
+      navigate(`/worlds/${worldId}/galaxy/${system.id}`);
+    } else {
+      navigate(`/worlds/${worldId}/galaxy`);
+    }
+  }, [navigate, worldId]);
 
   const handleBack = useCallback(() => {
-    if (selectedSystem) {
-      setSelectedSystem(null);
+    if (starSystemId) {
+      navigate(`/worlds/${worldId}/galaxy`);
     } else {
       navigate(`/worlds/${worldId}`);
     }
-  }, [selectedSystem, navigate, worldId]);
+  }, [starSystemId, navigate, worldId]);
 
   return (
     <Box sx={{ position: "relative", width: "100%", height: "calc(100vh - 64px)", bgcolor: "#000" }}>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from "react-router-dom";
 import {
   AppBar,
@@ -21,6 +21,10 @@ import MenuIcon from "@mui/icons-material/Menu";
 import PublicIcon from "@mui/icons-material/Public";
 import HomeIcon from "@mui/icons-material/Home";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
+import { callTool } from "../api/worldbuilder";
+import { ENTITY_SINGULAR, type EntityType } from "../types";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const DRAWER_WIDTH = 260;
 
@@ -40,6 +44,100 @@ export default function Layout() {
       crumbs.push({ label: decodeURIComponent(p), path: acc });
     }
     return crumbs;
+  }, [location.pathname]);
+
+  // ─── Resolve UUID breadcrumb segments to entity names ─────────
+  const [nameMap, setNameMap] = useState<Record<string, string>>({});
+  const nameCache = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    const parts = location.pathname.split("/").filter(Boolean);
+    // Identify UUID segments and what they represent
+    const toResolve: { id: string; fetchFn: () => Promise<string | null> }[] = [];
+
+    for (let i = 0; i < parts.length; i++) {
+      const seg = parts[i];
+      if (!UUID_RE.test(seg)) continue;
+      if (nameCache.current[seg]) continue; // already cached
+
+      // UUID right after "worlds" → it's a worldId
+      if (parts[i - 1] === "worlds") {
+        toResolve.push({
+          id: seg,
+          fetchFn: async () => {
+            try {
+              const res = await callTool<{ world?: { name?: string }; name?: string }>(
+                "get_world",
+                { worldId: seg }
+              );
+              const w = res.data;
+              return (w as any)?.name ?? (w as any)?.world?.name ?? null;
+            } catch {
+              return null;
+            }
+          },
+        });
+      }
+      // UUID after an entity-type segment → it's an entityId
+      // Pattern: worlds/<worldId>/<entityType>/<entityId> → indices 0/1/2/3
+      else if (i >= 3 && parts[i - 3] === "worlds") {
+        const maybeType = parts[i - 1] as EntityType;
+        const worldId = parts[i - 2];
+        const singular = ENTITY_SINGULAR[maybeType];
+        if (singular && UUID_RE.test(worldId)) {
+          toResolve.push({
+            id: seg,
+            fetchFn: async () => {
+              try {
+                const res = await callTool<{ name?: string; title?: string }>(
+                  `get_${singular}`,
+                  { worldId, id: seg }
+                );
+                return res.data?.name ?? res.data?.title ?? null;
+              } catch {
+                return null;
+              }
+            },
+          });
+        }
+        // Pattern: worlds/<worldId>/galaxy/<starSystemId>
+        else if (parts[i - 1] === "galaxy" && UUID_RE.test(worldId)) {
+          toResolve.push({
+            id: seg,
+            fetchFn: async () => {
+              try {
+                const res = await callTool<{ name?: string }>(
+                  "get_star_system",
+                  { worldId, id: seg }
+                );
+                return res.data?.name ?? null;
+              } catch {
+                return null;
+              }
+            },
+          });
+        }
+      }
+    }
+
+    if (toResolve.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const results: Record<string, string> = {};
+      await Promise.all(
+        toResolve.map(async ({ id, fetchFn }) => {
+          const name = await fetchFn();
+          if (name) results[id] = name;
+        })
+      );
+      if (!cancelled) {
+        Object.assign(nameCache.current, results);
+        setNameMap((prev) => ({ ...prev, ...results }));
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [location.pathname]);
 
   const drawer = (
@@ -124,18 +222,23 @@ export default function Layout() {
               <Link component={RouterLink} to="/" color="inherit" underline="hover">
                 Home
               </Link>
-              {breadcrumbs.map((crumb, i) => (
-                <Link
-                  key={crumb.path}
-                  component={RouterLink}
-                  to={crumb.path}
-                  color={i === breadcrumbs.length - 1 ? "text.primary" : "inherit"}
-                  underline="hover"
-                  sx={{ textTransform: "capitalize" }}
-                >
-                  {crumb.label}
-                </Link>
-              ))}
+              {breadcrumbs.map((crumb, i) => {
+                const displayLabel = UUID_RE.test(crumb.label)
+                  ? nameMap[crumb.label] ?? "…"
+                  : crumb.label;
+                return (
+                  <Link
+                    key={crumb.path}
+                    component={RouterLink}
+                    to={crumb.path}
+                    color={i === breadcrumbs.length - 1 ? "text.primary" : "inherit"}
+                    underline="hover"
+                    sx={{ textTransform: "capitalize" }}
+                  >
+                    {displayLabel}
+                  </Link>
+                );
+              })}
             </Breadcrumbs>
           </Toolbar>
         </AppBar>

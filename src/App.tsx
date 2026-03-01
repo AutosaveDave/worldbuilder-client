@@ -20,6 +20,7 @@ export default function App() {
           <Route path="/worlds/:worldId/timeline" element={<TimelinePage />} />
           <Route path="/worlds/:worldId/graph" element={<RelationshipsPage />} />
           <Route path="/worlds/:worldId/galaxy" element={<GalaxyMap />} />
+          <Route path="/worlds/:worldId/galaxy/:starSystemId" element={<GalaxyMap />} />
           <Route path="/worlds/:worldId/:entityType" element={<EntityList />} />
           <Route path="/worlds/:worldId/:entityType/:entityId" element={<EntityDetail />} />
         </Route>
